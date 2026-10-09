@@ -13,3 +13,5 @@
 .classes{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:18px 0;width:520px;max-width:86vw}.classes label{display:flex;flex-direction:column;font-size:9px;letter-spacing:2px;color:#aeb0a1}
 .classes select{margin-top:4px;background:#11141a;color:#e8e2d4;border:1px solid #4a4a44;padding:6px;font-size:12px}.streak-note{grid-column:1/3;font-size:10px;color:#9a917e;margin:4px 0 0}
 body.menu-open #scorebar,body.menu-open #minimap,body.menu-open #streaks,body.menu-open #killfeed,body.menu-open #weapon-panel{visibility:hidden}
+
+.classes input,.online button{margin-top:4px;background:#11141a;color:#e8e2d4;border:1px solid #4a4a44;padding:6px;font-size:12px}.online{display:flex;gap:6px}.online input{width:70px}.online button{cursor:pointer;letter-spacing:1px;font-size:10px}

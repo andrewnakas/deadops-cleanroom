@@ -19,8 +19,11 @@
 <label>Primary <select id="cls-primary"></select></label><label>Secondary <select id="cls-secondary"></select></label>
 <label>Perk 1 <select id="cls-perk0"></select></label><label>Perk 2 <select id="cls-perk1"></select></label><label>Perk 3 <select id="cls-perk2"></select></label>
 <label>Bots <select id="cls-diff"></select></label><label>Teams <select id="cls-size"></select></label>
+<label>Name <input id="cls-name" maxlength="14" placeholder="Guest"></label><label>Online <span class="online"><button id="host-room" type="button">HOST A ROOM</button><input id="join-code" maxlength="8" placeholder="CODE"><button id="join-room" type="button">JOIN</button></span></label>
+<p class="streak-note" id="net-status">Solo vs bots. Host a room and share the link to play with friends (peer-to-peer).</p>
 <p class="streak-note">Killstreaks · <span id="streak-list"></span></p></div>
 <button id="start" disabled>DEPLOY <span>→</span></button><p id="menu-status"></p>
 <div class="menu-controls"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>MOUSE</kbd> AIM / SHOOT</span><span><kbd>R</kbd> RELOAD</span><span><kbd>Q</kbd> SWAP</span><span><kbd>5</kbd> KILLSTREAK</span><span><kbd>TAB</kbd> SCORES</span></div>
 <p class="local-note"><a href="index.html" style="color:inherit">← ZOMBIES</a> · <a href="credits.html" style="color:inherit">CREDITS</a> · ALL ART CC0</p></div></section>
+<script src="vendor/peerjs.min.js"></script>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/jsm/","three-mesh-bvh":"./vendor/bvh.js","@recast-navigation/core":"./vendor/recast-core.mjs","@recast-navigation/wasm":"./vendor/recast-wasm.js"}}</script><script type="module" src="mp.js"></script></body></html>
