@@ -49,6 +49,12 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
    (only tested between two browsers on this PC; no TURN relay, so some strict NATs will fail to connect).
 3. MP polish: grenades for bots and the player, a death animation camera, spawn protection, footstep audio.
 
+## MP parity backlog (owner asked 2026-10-09; next session)
+Not built yet: pre-game lobby (ready-up, team select, host controls, map vote), public matchmaking and quick play,
+parties, host migration, ranked and leaderboards, XP/levels/unlocks/prestige, medals, class slots and attachments,
+more modes (only TDM), arenas 2 and 3, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
+First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
+
 ## For the morning
 - Play zombies at the link above and TDM at `/mp.html` (also linked from the menu). Please look at feel, weapon balance and the map layout.
 - Try online: open `/mp.html`, press HOST A ROOM, and send the join link to a second device.
