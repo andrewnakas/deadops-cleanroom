@@ -1,0 +1,44 @@
+{
+  "mode": "Team Deathmatch",
+  "scoreLimit": 75,
+  "timeLimit": 600,
+  "respawnDelay": 3,
+  "teams": [
+    {"name": "Dawn", "color": "#e0a040", "model": "models/soldier.glb", "clips": {"idle": "Idle_Shoot", "run": "Run_Gun", "shoot": "Idle_Shoot", "death": "Death"}, "showMesh": ["Body", "Head", "ShoulderPad.L", "ShoulderPad.R", "AK"]},
+    {"name": "Dusk", "color": "#4aa0e0", "model": "models/swat.glb", "clips": {"idle": "Idle_Gun_Pointing", "run": "Run_Shoot", "shoot": "Idle_Gun_Shoot", "death": "Death"}, "attachGun": "Wrist.R"}
+  ],
+  "primaries": ["packrat", "halvard", "ranger", "kestrel", "brute"],
+  "secondaries": ["warden", "revolver"],
+  "weapons": {
+    "packrat": {"damage": 26, "minDamage": 18, "range": 600, "headMultiplier": 1.4, "spread": 0.03},
+    "halvard": {"damage": 31, "minDamage": 24, "range": 1400, "headMultiplier": 1.5, "spread": 0.025},
+    "ranger":  {"damage": 36, "minDamage": 28, "range": 1500, "headMultiplier": 1.5, "spread": 0.02},
+    "kestrel": {"damage": 90, "minDamage": 90, "range": 4000, "headMultiplier": 2, "spread": 0.06, "pierce": 1},
+    "brute":   {"damage": 16, "minDamage": 6,  "range": 450, "headMultiplier": 1.2, "spread": 0.06},
+    "warden":  {"damage": 28, "minDamage": 20, "range": 800, "headMultiplier": 1.6, "spread": 0.025},
+    "revolver":{"damage": 55, "minDamage": 40, "range": 1000, "headMultiplier": 1.6, "spread": 0.03}
+  },
+  "perks": [
+    [{"id": "fleetfoot", "name": "Fleetfoot", "blurb": "Move 12% faster"},
+     {"id": "thickskin", "name": "Thick Skin", "blurb": "+25 health"},
+     {"id": "scavenger", "name": "Scavenger", "blurb": "Refill a magazine on every kill"}],
+    [{"id": "steady", "name": "Steady Hands", "blurb": "Tighter hip-fire spread"},
+     {"id": "quickdraw", "name": "Quickdraw", "blurb": "Reload 40% faster"},
+     {"id": "deeppockets", "name": "Deep Pockets", "blurb": "Spawn with extra ammo"}],
+    [{"id": "ghostline", "name": "Ghostline", "blurb": "Invisible to enemy scans"},
+     {"id": "hardline", "name": "Hardline", "blurb": "Killstreaks need one fewer kill"},
+     {"id": "lightstep", "name": "Light Step", "blurb": "Enemies are slower to react to you"}]
+  ],
+  "streaks": [
+    {"id": "scan", "name": "Scan", "kills": 3, "blurb": "Shows every enemy on the map for 30 s"},
+    {"id": "airstrike", "name": "Airstrike", "kills": 5, "blurb": "Carpet the busiest enemy lane"},
+    {"id": "drone", "name": "RC Drone", "kills": 7, "blurb": "A rolling charge that hunts the nearest enemy"}
+  ],
+  "difficulty": {
+    "recruit":  {"reaction": 0.65, "aimError": 0.11, "turn": 2.6, "fov": 0.45, "headChance": 0.05},
+    "regular":  {"reaction": 0.42, "aimError": 0.065, "turn": 3.6, "fov": 0.35, "headChance": 0.15},
+    "hardened": {"reaction": 0.28, "aimError": 0.04, "turn": 4.8, "fov": 0.25, "headChance": 0.3},
+    "veteran":  {"reaction": 0.18, "aimError": 0.025, "turn": 6.5, "fov": 0.15, "headChance": 0.45}
+  },
+  "botNames": ["Ash", "Birch", "Cedar", "Dune", "Ember", "Flint", "Grove", "Hawk", "Iris", "Juniper", "Kestrel", "Lark", "Moss", "Nettle", "Onyx", "Pike", "Quill", "Rook", "Sable", "Thorn", "Umber", "Vale", "Wren", "Yarrow"]
+}

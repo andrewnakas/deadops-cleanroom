@@ -10,7 +10,9 @@ export const zoneNames={lobby:'Lobby',stairs:'Stair hall',balcony:'Balcony',boot
 // Surface materials: ambientCG CC0 textures (assets/LICENSES.csv) with a tint per use.
 const SURFACES={tiles:{tint:0x9a9284,scale:48},plaster:{tint:0x9a948a,scale:120},wallpaper:{tint:0x8f6f5a,scale:90},paintedwood:{tint:0x7a5a3c,scale:80},
   metal:{tint:0x8a8f96,scale:80,metal:.6},velvet:{tint:0x9a1d22,scale:60},carpet:{tint:0x7a3430,scale:110},bricks:{tint:0x9a7a6a,scale:120},
-  woodfloor:{tint:0xa08060,scale:110},concrete:{tint:0x8a8a86,scale:140},asphalt:{tint:0x6a6a6a,scale:160},planks:{tint:0xa88a62,scale:60}};
+  woodfloor:{tint:0xa08060,scale:110},concrete:{tint:0x8a8a86,scale:140},asphalt:{tint:0x6a6a6a,scale:160},planks:{tint:0xa88a62,scale:60},
+  grass:{tint:0x7a9a5a,scale:120},hedge:{tint:0x3f6a34,scale:80},roof:{tint:0x7a4a3a,scale:90},siding:{tint:0xc8c0a8,scale:100},siding_b:{tex:'siding',tint:0x8aa0b8,scale:100},
+  glass:{plain:0x9fc8d8,opacity:.35},water:{plain:0x3a8ab8,opacity:.8},carpaint:{plain:0x8a2a24,metal:.5},carpaint_b:{plain:0x2a4a7a,metal:.5}};
 function boxCollider(min,max){return new CollisionWorld(boxGeometry(min,max));}
 function yawToward(normal){return Math.atan2(normal[0],normal[2]);}
 
@@ -21,8 +23,10 @@ export class World {
     progress('Building the picture house',15);
     const loader=new THREE.TextureLoader(),tex=(url,color=false)=>loader.loadAsync(url).then(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;if(color)t.colorSpace=THREE.SRGBColorSpace;return t;}).catch(()=>null);
     this.materials={};
-    await Promise.all(Object.entries(SURFACES).map(async([name,s])=>{
-      const [map,normalMap,roughnessMap]=await Promise.all([tex(`textures/${name}_color.jpg`,true),tex(`textures/${name}_normal.jpg`),tex(`textures/${name}_rough.jpg`)]);
+    const used=new Set(kit.solids.map(x=>x.mat));
+    await Promise.all(Object.entries(SURFACES).filter(([name])=>used.has(name)).map(async([name,s])=>{
+      if(s.plain!==undefined){this.materials[name]=new THREE.MeshStandardMaterial({color:s.plain,roughness:.35,metalness:s.metal??0,transparent:!!s.opacity,opacity:s.opacity??1,depthWrite:!s.opacity});return;}
+      const t=s.tex??name,[map,normalMap,roughnessMap]=await Promise.all([tex(`textures/${t}_color.jpg`,true),tex(`textures/${t}_normal.jpg`),tex(`textures/${t}_rough.jpg`)]);
       this.materials[name]=new THREE.MeshStandardMaterial({color:s.tint,map,normalMap,roughnessMap,roughness:1,metalness:s.metal??0,normalScale:new THREE.Vector2(.8,.8)});
     }));
     const geos=buildGeometry(kit.solids,{scales:Object.fromEntries(Object.entries(SURFACES).map(([k,s])=>[k,s.scale]))});
@@ -87,6 +91,7 @@ export class World {
     this.zones=ents.filter(e=>e.type==='zone').map(z=>({name:z.name,boxes:z.boxes.map(([a,b])=>new THREE.Box3(vector(a),vector(b)))}));
     this.spawn=ents.find(e=>e.type==='spawn');
     this.activeBox=this.crates.find(c=>c.start)??this.crates[0];
+    this.spawns=ents.filter(e=>e.type==='spawn');this.waypoints=ents.filter(e=>e.type==='waypoint');
     this.boxBeam=new THREE.Mesh(new THREE.CylinderGeometry(6,22,900,12,1,true),new THREE.MeshBasicMaterial({color:0x9fd4ff,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
     this.scene.add(this.boxBeam);this.openBoxes=new Set();this.updateBox();
     this.physics={capsuleIntersect:c=>{
@@ -110,6 +115,7 @@ export class World {
     this.boxBeam.material.opacity=.07+Math.sin(session.time*2)*.02;
   }
   updateBox(){
+    if(!this.activeBox){this.boxBeam.visible=false;return;}
     const p=this.activeBox.position;this.boxBeam.position.set(p.x,p.y+450,p.z);
     for(const c of this.crates){const visible=!!this.clearanceSale||c===this.activeBox||this.openBoxes?.has(c.id);c.object.visible=visible;c.rubble.visible=!visible;}
   }
