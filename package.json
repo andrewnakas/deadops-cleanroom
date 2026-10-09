@@ -15,6 +15,7 @@
     "test:mobile": "node .tools/test-mobile.mjs",
     "test:waves": "node .tools/test-waves.mjs 10",
     "test:tdm": "node .tools/test-tdm.mjs",
+    "test:p2p": "node .tools/test-p2p.mjs",
     "bake:suburb": "node .tools/bake-map.mjs suburb",
     "check:licences": "python -I tools/check_manifest.py",
     "check:marks": "python -I tools/check_marks.py export/web"

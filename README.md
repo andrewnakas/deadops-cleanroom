@@ -5,7 +5,8 @@
 Hold out in the *Starlight Picturehouse*, an abandoned cinema, against endless rounds of the undead.
 Board up the windows, buy weapons off the walls, open the theatre, restore the power, drink from the
 machines, gamble at the Lucky Crate and refine your gun. Or deploy to *Maple Court*, a three-lane suburban
-arena, for team deathmatch with bots: create a class, pick three perks and earn killstreaks.
+arena, for team deathmatch with bots: create a class, pick three perks and earn killstreaks. Host a room
+and share the link to play with friends (peer-to-peer, the host is the authority).
 
 Everything you see and hear is free to reuse:
 
@@ -22,7 +23,7 @@ Everything you see and hear is free to reuse:
 The engine (player controller, collision, navmesh AI, round rules, touch controls) is adapted from the
 MIT-licensed code of [luckeyfaraday/kino-der-toten](https://github.com/luckeyfaraday/kino-der-toten) by
 **@luckeyfaraday**. Only code was used: none of that project's art, audio, maps, animations or history.
-Its licence is kept in [`LICENSE-kino`](LICENSE-kino). three.js, three-mesh-bvh and recast-navigation-js are MIT.
+Its licence is kept in [`LICENSE-kino`](LICENSE-kino). three.js, three-mesh-bvh, recast-navigation-js and PeerJS are MIT.
 
 ## Controls
 
@@ -50,6 +51,7 @@ npm run test:weapons         # every weapon loads, fires and reloads (add -- --u
 npm run test:mobile          # touch layout and controls
 npm run test:waves           # headless survival run to round 10
 npm run test:tdm             # bots-only team deathmatch to completion
+npm run test:p2p             # two browsers, one hosts and one joins over WebRTC (needs internet)
 npm run bake                 # rebake collision + navmesh after editing maps/cinema.js
 npm run check:licences       # every shipped asset has a CC0 / own-work licence row
 npm run check:marks          # no third-party game names anywhere in the build

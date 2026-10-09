@@ -11,7 +11,7 @@ page = f"""<!doctype html><html lang="en"><meta charset="utf-8"><title>Graveshif
 <p>Every model and texture is CC0 (public domain); sounds and music are synthesised in code; maps, props, posters and the film reel are original procedural work. Announcer lines are Piper TTS placeholders.</p>
 <h2>Code</h2><ul>
 <li>Engine code adapted from a browser zombies engine by <a href="https://github.com/luckeyfaraday">@luckeyfaraday</a> (MIT; code only, no art; licence kept in the repository).</li>
-<li><a href="https://threejs.org">three.js</a> (MIT), <a href="https://github.com/gkjohnson/three-mesh-bvh">three-mesh-bvh</a> (MIT), <a href="https://github.com/isaac-mason/recast-navigation-js">recast-navigation-js</a> (MIT).</li></ul>
+<li><a href="https://threejs.org">three.js</a> (MIT), <a href="https://github.com/gkjohnson/three-mesh-bvh">three-mesh-bvh</a> (MIT), <a href="https://github.com/isaac-mason/recast-navigation-js">recast-navigation-js</a> (MIT), <a href="https://peerjs.com">PeerJS</a> (MIT).</li></ul>
 <h2>Art (CC0)</h2><ul>{items}</ul>
 <p><a href="index.html">← back to the game</a></p></html>"""
 open(os.path.join(root, 'export', 'web', 'credits.html'), 'w', encoding='utf8').write(page); print('credits.html', len(rows), 'rows')

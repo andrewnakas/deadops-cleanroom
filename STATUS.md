@@ -15,7 +15,7 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   (ryan-high) placeholders.
 - **Tests:** `npm test` 17/17, `test:routes` 6/6 physical routes, `test:weapons` 15/15 (and --upgraded),
   `test:mobile` pass, `test:waves` reaches round 10 headless with 0 errors (hound round included).
-- **Gates:** `check:licences` gives 2389 manifest rows / 81 shipped media / **0 failing**; `check:marks` gives **0 hits**.
+- **Gates:** `check:licences` gives 2389 manifest rows / 93 shipped media / **0 failing**; `check:marks` gives **0 hits**.
 
 - **Multiplayer (bots-only first release):** `mp.html` runs Team Deathmatch on the original three-lane arena
   **Maple Court** (`maps/suburb.js`): first to 75 or 10 minutes, team spawns, scoreboard (Tab), killfeed and minimap.
@@ -23,6 +23,11 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   and RC Drone (7). Bots path on the navmesh along lanes, hear gunfire, and have four aim/reaction tiers
   (recruit, regular, hardened, veteran). `npm run test:tdm` runs a bots-only match to completion; three runs
   finished 75–45, 58–75 and 63–75 with 0 errors.
+
+- **Online play (2026-10-09):** `mp.html` has HOST A ROOM / JOIN. Rooms are WebRTC peer-to-peer through PeerJS cloud
+  signalling. The host runs bots, hit detection, health, score and killstreaks; a joining player takes over a bot
+  slot, owns only their movement, and sends shot rays that the host checks. `npm run test:p2p` joins two real
+  browsers and passes (slot takeover, position sync, shots and kills through the host, slot handed back on leave).
 
 ## Decisions
 - **Public title "Graveshift":** "Dead Ops" stays as the repo id only, because it is close to the name of a mini-game
@@ -40,11 +45,12 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
 
 ## Next
 1. Visual polish: viewmodel arms and hands, lighting balance after power-on, more set dressing.
-2. MP phase 2: WebRTC peer-to-peer (host-authoritative; PeerJS or a Cloudflare Worker for signalling), then two
-   more original arenas.
+2. Two more original MP arenas. Online play still needs a real two-machine session across the internet
+   (only tested between two browsers on this PC; no TURN relay, so some strict NATs will fail to connect).
 3. MP polish: grenades for bots and the player, a death animation camera, spawn protection, footstep audio.
 
 ## For the morning
 - Play zombies at the link above and TDM at `/mp.html` (also linked from the menu). Please look at feel, weapon balance and the map layout.
+- Try online: open `/mp.html`, press HOST A ROOM, and send the join link to a second device.
 - Record the announcer: script in `assets/voice_lines.csv` (19 lines).
 - Confirm the title "Graveshift" (rename = `data/game.json` title + index.html).
