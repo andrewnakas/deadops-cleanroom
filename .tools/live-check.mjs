@@ -1,0 +1,10 @@
+import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);
+import { chromium } from 'playwright-core';
+const b = await chromium.launch({ executablePath: ['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(f=>{try{return require('fs').existsSync(f)}catch{return false}}), headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } }), errs = [];
+p.on('pageerror', e => errs.push(String(e))); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+const t = Date.now(); await p.goto('https://andrewnakas.github.io/deadops-cleanroom/');
+await p.waitForFunction(() => globalThis.game?.debug.getState().ready, null, { timeout: 180000 });
+await p.evaluate(() => { game.debug.setActive(true); game.debug.step(2); });
+await p.waitForTimeout(500); await p.screenshot({ path: 'artifacts/live.png' });
+console.log('live ready in', (Date.now() - t) / 1000, 's errors', errs.length, errs.slice(0, 3)); await b.close();

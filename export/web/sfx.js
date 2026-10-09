@@ -2,7 +2,7 @@
 // WebAudio at runtime. Announcer lines are Piper TTS renders in audio/voice/*.ogg.
 const MOTIFS={perk_wind:[0,4,7,12,7],perk_hide:[0,3,7,3,0,-5],perk_hands:[0,2,4,7,9,12],perk_trigger:[0,7,5,7,12,7]};
 export class GameAudio {
-  constructor(){this._enabled=true;this.ctx=null;this.played=[];this.voices={};this.voiceList=[];}
+  constructor(){this.scale=1;this._enabled=true;this.ctx=null;this.played=[];this.voices={};this.voiceList=[];}
   async load(){try{const r=await fetch('audio/voice/manifest.json');if(r.ok)this.voiceList=await r.json();}catch{}}
   get enabled(){return this._enabled;}
   set enabled(v){this._enabled=v;if(this.master)this.master.gain.value=v?.5:0;}
@@ -19,7 +19,7 @@ export class GameAudio {
   pause(){this.ctx?.suspend();}
   get ok(){return this._enabled&&this.ctx&&this.ctx.state==='running';}
   log(k){this.played.push(k);if(this.played.length>30)this.played.shift();}
-  env(g,t,a,peak,decay){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,peak),t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+decay);}
+  env(g,t,a,peak,decay){peak*=this.scale;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,peak),t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+decay);}
   noiseHit({t=this.ctx.currentTime,type='lowpass',f=2000,f2=null,q=.7,vol=.5,a=.002,d=.2,dest=this.master,rate=1}){
     const s=this.ctx.createBufferSource(),fl=this.ctx.createBiquadFilter(),g=this.ctx.createGain();s.buffer=this.noise;s.playbackRate.value=rate;
     fl.type=type;fl.frequency.setValueAtTime(f,t);if(f2)fl.frequency.exponentialRampToValueAtTime(f2,t+a+d);fl.Q.value=q;
@@ -39,6 +39,7 @@ export class GameAudio {
     this.tone({f:big?95:140,f2:40,vol:big?.6:.38,d:big?.22:.12});
     if(c==='sniper')this.noiseHit({t:this.ctx.currentTime+.05,f:500,f2:120,vol:.3,d:.8});
   }
+  at(volume,fn){if(volume<=.02)return;const old=this.scale;this.scale=volume;try{fn();}finally{this.scale=old;}}
   dry(){if(!this.ok)return;this.noiseHit({type:'bandpass',f:4200,q:6,vol:.3,d:.03});}
   reload(stage,duration=1){
     if(!this.ok)return;const t=this.ctx.currentTime;

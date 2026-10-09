@@ -38,11 +38,12 @@ const query = new NavMeshQuery(result.navMesh, { maxNodes: 8192 });
 query.defaultQueryHalfExtents = { x: 70, y: 100, z: 70 };
 // Report reachability from the spawn to every zone, machine and barrier.
 const spawn = map.kit.entities.find(e => e.type === 'spawn').position;
-const checks = map.kit.entities.filter(e => ['perk', 'refinery', 'power', 'crate', 'wallbuy', 'axe'].includes(e.type) || e.type === 'barrier');
+const checks = map.kit.entities.filter(e => ['perk', 'refinery', 'power', 'crate', 'wallbuy', 'axe', 'spawn', 'waypoint'].includes(e.type) || e.type === 'barrier');
 let fail = 0;
 for (const e of checks) {
   let p = e.position ?? e.center;
   if (e.type === 'barrier') p = [p[0] - e.normal[0] * 50, p[1], p[2] - e.normal[2] * 50];
+  else if (e.type === 'spawn' || e.type === 'waypoint') p = e.position;
   else { const yaw = e.yaw ?? 0; p = [p[0] + Math.sin(yaw) * 40, p[1], p[2] + Math.cos(yaw) * 40]; }
   const r = query.computePath({ x: spawn[0], y: spawn[1], z: spawn[2] }, { x: p[0], y: p[1], z: p[2] });
   const end = r.path?.at(-1), d = end ? Math.hypot(end.x - p[0], end.z - p[2]) : 1e9;

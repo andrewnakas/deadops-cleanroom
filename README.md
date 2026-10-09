@@ -1,10 +1,11 @@
 # Graveshift: round-based zombie survival in the browser
 
-**Play:** https://andrewnakas.github.io/deadops-cleanroom/
+**Play zombies:** https://andrewnakas.github.io/deadops-cleanroom/ · **Team deathmatch vs bots:** https://andrewnakas.github.io/deadops-cleanroom/mp.html
 
 Hold out in the *Starlight Picturehouse*, an abandoned cinema, against endless rounds of the undead.
 Board up the windows, buy weapons off the walls, open the theatre, restore the power, drink from the
-machines, gamble at the Lucky Crate and refine your gun. A team-deathmatch mode with bots is in progress.
+machines, gamble at the Lucky Crate and refine your gun. Or deploy to *Maple Court*, a three-lane suburban
+arena, for team deathmatch with bots: create a class, pick three perks and earn killstreaks.
 
 Everything you see and hear is free to reuse:
 
@@ -48,6 +49,7 @@ npm run test:routes          # walk every route through the map with the real pl
 npm run test:weapons         # every weapon loads, fires and reloads (add -- --upgraded)
 npm run test:mobile          # touch layout and controls
 npm run test:waves           # headless survival run to round 10
+npm run test:tdm             # bots-only team deathmatch to completion
 npm run bake                 # rebake collision + navmesh after editing maps/cinema.js
 npm run check:licences       # every shipped asset has a CC0 / own-work licence row
 npm run check:marks          # no third-party game names anywhere in the build

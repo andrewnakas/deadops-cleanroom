@@ -62,3 +62,15 @@ textures/tiles_color.jpg,Tiles074,ambientCG (Lennart Demes),CC0-1.0,https://ambi
 textures/tiles_normal.jpg,Tiles074,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Tiles074,resized to 512px
 textures/tiles_rough.jpg,Tiles074,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Tiles074,resized to 512px
 audio/voice/*.ogg,Announcer placeholder lines (tools/make_voices.py),Generated with Piper TTS (voice en_US-ryan-high),"own work, CC0 dedication (placeholder TTS, to be replaced by own recordings)",https://github.com/rhasspy/piper,"no cloning, no retail audio"
+textures/grass_color.jpg,Grass004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Grass004,resized to 512px
+textures/grass_normal.jpg,Grass004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Grass004,resized to 512px
+textures/grass_rough.jpg,Grass004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Grass004,resized to 512px
+textures/hedge_color.jpg,Ground037,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Ground037,resized to 512px
+textures/hedge_normal.jpg,Ground037,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Ground037,resized to 512px
+textures/hedge_rough.jpg,Ground037,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Ground037,resized to 512px
+textures/roof_color.jpg,RoofingTiles013A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=RoofingTiles013A,resized to 512px
+textures/roof_normal.jpg,RoofingTiles013A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=RoofingTiles013A,resized to 512px
+textures/roof_rough.jpg,RoofingTiles013A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=RoofingTiles013A,resized to 512px
+textures/siding_color.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
+textures/siding_normal.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
+textures/siding_rough.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
