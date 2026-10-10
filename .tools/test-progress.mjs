@@ -50,6 +50,14 @@ try {
   await page.waitForFunction(() => globalThis.game?.debug.getState().ready, null, { timeout: 120000 });
   const again = await page.evaluate(() => game.debug.progress());
   check('the profile survives a reload', again.xp === end.p.xp && again.level === end.p.level, `level ${again.level}, ${again.xp} XP`);
+  check('challenges are listed with progress', (await page.textContent('#challenges')).includes('Marksman ' + again.kills + '/25') && await page.evaluate(() => document.getElementById('tour').hidden));
+  await page.evaluate(() => { const p = JSON.parse(localStorage.getItem('graveshift.progress')); p.xp = 145000; p.kills = 30; localStorage.setItem('graveshift.progress', JSON.stringify(p)); });
+  await page.reload(); await page.waitForFunction(() => globalThis.game?.debug.getState().ready, null, { timeout: 120000 });
+  check('the level cap offers a new tour', await page.evaluate(() => !document.getElementById('tour').hidden && game.debug.progress().level === 30));
+  await page.evaluate(() => document.getElementById('tour').click());
+  await page.waitForFunction(() => globalThis.game?.debug.getState().ready && game.debug.progress().tour === 1, null, { timeout: 120000 });
+  const tour = await page.evaluate(() => ({ p: game.debug.progress(), rank: document.getElementById('rank').textContent, locked: document.querySelectorAll('#cls-primary option:disabled').length }));
+  check('a new tour resets level and unlocks and keeps totals', tour.p.level === 1 && tour.p.kills === 30 && tour.rank.startsWith('TOUR 2 · LEVEL 1') && tour.locked === 4, tour.rank);
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   console.log('PASS progress');
 } catch (e) { console.error('FAIL', e.message, errors.slice(0, 5)); process.exitCode = 1; }

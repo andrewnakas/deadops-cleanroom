@@ -64,8 +64,19 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   scores a point a second, first to 150, the zone moves every 30 s between three spots. Bots walk to it and lob
   frags at a zone the other team holds. Holding pays the player 50 XP per 5 s (host or solo only).
 - **Third arena, "Gull Wharf" (2026-10-10):** boardwalk, fish market stalls, two boat sheds. 37/37 nav targets.
-- **Host leaves mid-match:** a joiner now gets a "THE HOST LEFT THE MATCH" end screen (the data channel closing, or
-  8 s without a snapshot) and keeps the XP earned. The match itself is still lost: there is no host migration.
+- **Host migration (2026-10-10):** when the host drops mid-match (data channel closes, or 8 s without a snapshot)
+  the joiner in the lowest seat reopens the match as room `<code>M<seat>` from its last snapshot: soldiers, score,
+  clock, markers and zone carry over, the old host's soldier becomes a bot, and the other joiners reconnect to
+  their own seats. Tested with one host and two joiners in headless browsers on this PC, through to the match end.
+  Limits: ammo and cooldowns of bots restart, in-flight grenades and streak drones are dropped, and if the heir
+  also left, the others get a "THE HOST LEFT THE MATCH" end screen once their retries run out (not timed) and keep their XP.
+- **Challenges and tours (2026-10-10):** seven lifetime challenges (kills, clean shots, wins, matches, trios,
+  paybacks, long kills) with tiers that pay 500 XP times the tier, listed in the menu. At level 30 a START TOUR
+  button resets level and unlocks and keeps totals and challenges (up to 5 tours). Browser-local like the rest.
+- **MP announcer (2026-10-10):** 14 placeholder Piper lines (`mp_*`): match start, win, lose, draw, lead taken or
+  lost, either team at 90% of the limit, zone moved, the three killstreaks, enemy airstrike, host changed. The
+  host relays streak lines to joiners. Checked by a probe listing the lines spoken in a Holdout match; not
+  listened to. They are in `assets/voice_lines.csv` for recording (33 lines now).
 - **Bots in Recovery** pick up a marker within 280 units even while fighting (matches on Gull Wharf were running
   out the clock otherwise; they still reach the 10-minute limit there about as often as the score limit).
 - **Tests:** suites wait for the local server to answer instead of a fixed delay (this was the likely cause of the
@@ -100,14 +111,14 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 
 ## MP parity backlog (owner asked 2026-10-09; next session)
 Done: pre-game lobby (team select, ready-up, host remove, countdown, chat, arena vote), rematch with arena rotation,
-local XP, levels, medals and unlocks, three modes (TDM, Recovery, Holdout), three arenas.
-Not built yet: public matchmaking and quick play, parties, host migration, ranked and leaderboards, prestige and
-challenges, attachments, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
+host migration, local XP, levels, medals and unlocks, three modes (TDM, Recovery, Holdout), three arenas.
+Not built yet: public matchmaking and quick play, parties, ranked and leaderboards, prestige and
+more challenges, attachments, killcam, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
 ## For the morning
 - **Run `sh tools/publish.sh`** (it was blocked for the unattended session), then:
 - Play zombies at the link above and TDM at `/mp.html` (also linked from the menu). Please look at feel, weapon balance and the map layout.
 - Try online: open `/mp.html`, press HOST A ROOM, and send the join link to a second device.
-- Record the announcer: script in `assets/voice_lines.csv` (19 lines).
+- Record the announcer: script in `assets/voice_lines.csv` (33 lines).
 - Confirm the title "Graveshift" (rename = `data/game.json` title + index.html).
