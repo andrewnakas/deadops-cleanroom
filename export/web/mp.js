@@ -277,6 +277,8 @@ function beginCountdown(){
 function closeLobby(){if($('lobby').hidden)return;$('lobby').hidden=true;$('start').innerHTML='DEPLOY <span>→</span>';$('menu-status').textContent='Match is live · click DEPLOY';}
 function dropPeer(conn){hostClose(conn);net.conns.delete(conn);try{conn.close();}catch{}}
 function hostClose(conn){const i=lobby.findIndex(p=>p.conn===conn);if(i>=0){lobby.splice(i,1);sendLobby();}const s=net.conns.get(conn);if(s){s.remote=null;s.netPos=null;toast(s.name+' left',3);s.name+=' (bot)';}}
+// Feed lines arrive from the host as markup: keep only the name colour and italic tags, escape the rest.
+const feedText=t=>String(t).slice(0,300).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';').replace(/&#60;b style=&#34;color:(#[0-9a-fA-F]{3,8})&#34;&#62;/g,'<b style="color:$1">').replace(/&#60;(\/?)(b|i)&#62;/g,'<$1$2>');
 function clientData(conn,m){
   if(m.t==='full'){$('menu-status').textContent='That room is full';return;}
   if(m.t==='spawn'){const h=human();if(!h)return;h.alive=true;h.health=h.maxHealth;h.arms=new Arms(h.o,h.o.perks);player.setSpawn(vector(m.pos));player.respawn();camera.rotation.set(0,m.yaw,0);view.currentId=null;view.equip(h.arms.def);$('death').hidden=true;return;}
@@ -293,7 +295,7 @@ function clientData(conn,m){
       if(!was&&d.a){s.pos.copy(s.netPos);s.root.visible=true;s.rig.play('idle',true,1,0);}
       if(was&&!d.a){s.rig.play('death',false,1,.1);setTimeout(()=>{if(!s.alive)s.root.visible=false;},2200);}s.alive=d.a;}
   }
-  killfeed.length=0;for(const [t,text] of m.feed)killfeed.push({t,text});
+  killfeed.length=0;for(const [t,text] of m.feed.slice(0,6))killfeed.push({t:+t,text:feedText(text)});
   for(const e of m.ev){
     if(e[0]==='shot'&&e[1]!==myId){const a=vector(e[2]),b=vector(e[3]);tracer(a,b);audio.at(Math.max(0,1-a.distanceTo(camera.position)/2200)*.8,()=>audio.shot(WEAPONS[e[4]]??WEAPONS.halvard));}
     if(e[0]==='hit'&&e[1]===myId){hitUntil=time+.12;$('hitmarker').style.color=e[2]?'#db5140':'#eee';audio.play('hit',.6);}
@@ -306,7 +308,7 @@ async function goOnline(){
   net.onStatus=text=>{$('net-status').textContent=netRole==='host'?`Room ${room} · ${text}`:text;};
   try{
     if(netRole==='host'){net.onData=hostData;net.onClose=hostClose;await net.host(room);const link=location.origin+location.pathname+'?join='+room;$('net-status').innerHTML=`Room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a>`;sendLobby();}
-    else{net.onData=clientData;$('net-status').textContent='Joining room '+room+'…';await net.join(room);net.send({t:'hello',name:loadout.name||'Guest',o:loadout});$('net-status').textContent='Connected to room '+room;}
+    else{net.onData=clientData;$('net-status').textContent='Joining room '+room+'…';for(let n=0;;n++){try{await net.join(room);break;}catch(e){if(n>=4)throw e;$('net-status').textContent='Waiting for room '+room+'…';await new Promise(r=>setTimeout(r,3000));}}net.send({t:'hello',name:loadout.name||'Guest',o:loadout});$('net-status').textContent='Connected to room '+room;}
   }catch(e){$('net-status').textContent='Could not connect: '+(e.type??e.message);if(netRole==='host')netRole='solo';}
 }
 // ---------- match flow ----------

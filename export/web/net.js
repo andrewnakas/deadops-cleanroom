@@ -12,8 +12,8 @@ export class Net {
       c.on('close',()=>{this.onClose?.(c);this.conns.delete(c);this.set(`hosting · ${this.conns.size} joined`);});});
   }
   async join(code){
-    this.peer=await this.open(undefined);const c=this.peer.connect(PREFIX+code,{reliable:true});
-    await new Promise((resolve,reject)=>{c.on('open',resolve);c.on('error',reject);setTimeout(()=>reject(new Error('room not found')),20000);});
+    this.peer?.destroy();this.peer=await this.open(undefined);const c=this.peer.connect(PREFIX+code,{reliable:true});
+    await new Promise((resolve,reject)=>{c.on('open',resolve);c.on('error',reject);this.peer.on('error',()=>reject(new Error('room not found')));setTimeout(()=>reject(new Error('room not found')),20000);});
     this.conn=c;c.on('data',m=>this.onData?.(c,m));c.on('close',()=>this.set('disconnected from host'));this.set('connected');
   }
   send(m){if(this.conn?.open)this.conn.send(m);}
