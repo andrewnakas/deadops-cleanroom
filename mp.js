@@ -331,7 +331,8 @@ function addChat(n,v){chat.push({n,v});if(chat.length>8)chat.shift();}
 function votes(){const v={};for(const id of [hostVote,...lobby.map(p=>p.vote)])if(mp.maps[id])v[id]=(v[id]??0)+1;return v;}
 // The arena with the most votes wins; a tie keeps the current one.
 function votedMap(){const v=votes();let best=mapId;for(const id of Object.keys(mp.maps))if((v[id]??0)>(v[best]??0))best=id;return best;}
-function changeMap(id){for(const p of lobby)try{p.conn.send({...lobbyState(),map:id});}catch{}readMenu();const q=new URLSearchParams(location.search);q.set('map',id);setTimeout(()=>{location.search='?'+q;},400);}
+const nextMap=()=>{const ids=Object.keys(mp.maps);return ids[(ids.indexOf(mapId)+1)%ids.length];};
+function changeMap(id){for(const c of net.conns.keys())try{c.send({...lobbyState(),map:id});}catch{}readMenu();const q=new URLSearchParams(location.search);q.set('map',id);setTimeout(()=>{location.search='?'+q;},400);}
 function lobbySay(){const el=$('lobby-say'),v=say(el?.value);if(!v)return;el.value='';if(netRole==='host'){addChat(clean(loadout.name||'Host'),v);sendLobby();}else net.send({t:'chat',v});}
 function lobbyState(){return {t:'lobby',room,mode,map:mapId,votes:votes(),chat,count:countdown,size:loadout.size,diff:loadout.difficulty,players:[{name:clean(loadout.name||'Host'),team:hostTeam,ready:true,host:true},...lobby.map(p=>({name:p.name,team:p.team,ready:p.ready}))]};}
 function sendLobby(){if(netRole!=='host'||started)return;const st=lobbyState();lobby.forEach((p,i)=>{if(p.conn.open)p.conn.send({...st,you:i+1});});drawLobby({...st,you:0});}
@@ -401,6 +402,7 @@ function endMatch(){
   ended=true;const w=score[0]===score[1]?null:score[0]>score[1]?0:1;
   $('end').hidden=false;$('end-title').textContent=w===null?'DRAW':`TEAM ${mp.teams[w].name.toUpperCase()} WINS`;
   $('end-score').textContent=`${score[0]} — ${score[1]}`;
+  $('again').textContent=netRole==='host'?'NEXT ARENA: '+mp.maps[nextMap()].name.toUpperCase():netRole==='client'?'LEAVE ROOM':'PLAY AGAIN';
   if(human()){const list=['finish'];if(w===humanTeam()){list.push('win');prof.wins++;}prof.matches++;award(list);const l=levelOf(prof.xp);
     $('end-xp').textContent=`+${matchAwards.xp} XP · level ${matchAwards.startLevel}${l>matchAwards.startLevel?' → '+l:''}`+Object.entries(matchAwards.medals).map(([id,n])=>` · ${MEDALS[id]} ×${n}`).join('');}board(true);setActive(false);document.exitPointerLock?.();
 }
@@ -545,7 +547,7 @@ try{
   if(botsOnly){startMatch();setActive(true);}
   loadout.name=saved.name??'';await goOnline();
 }catch(e){console.error(e);errors.push(String(e));$('load-label').textContent='Unable to start: '+e.message;}
-$('start').addEventListener('click',deploy);renderer.domElement.addEventListener('click',()=>{if(!active&&started&&!ended)deploy();});$('again').addEventListener('click',()=>location.reload());
+$('start').addEventListener('click',deploy);renderer.domElement.addEventListener('click',()=>{if(!active&&started&&!ended)deploy();});$('again').addEventListener('click',()=>{if(netRole==='host')changeMap(nextMap());else if(netRole==='client')location.search='';else location.reload();});
 $('lobby').addEventListener('click',lobbyClick);$('lobby').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lobby-say')lobbySay();});for(const id of ['cls-size','cls-diff','cls-name','cls-mode'])$(id).addEventListener('change',()=>{if(netRole==='host'&&!started){readMenu();sendLobby();}});
 renderer.info.autoReset=false;
 function renderFrame(now){
