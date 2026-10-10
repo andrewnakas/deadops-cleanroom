@@ -200,10 +200,12 @@ function hurtArc(){
 }
 // Frag grenades: thrown on an arc, bounce off the level, burst on a fuse.
 const nades=[];
-function throwFrag(s,origin,dir){
-  if(!s.alive||!(s.frags>0))return false;s.frags--;s.safeUntil=0;
+function throwFrag(s,origin,dir,fx=null){
+  if(!fx){if(!s.alive||!(s.frags>0))return false;s.frags--;s.safeUntil=0;}
   const mesh=new THREE.Mesh(new THREE.SphereGeometry(4,8,6),new THREE.MeshBasicMaterial({color:0x2c3a24}));mesh.position.copy(origin).addScaledVector(dir,20);scene.add(mesh);
-  nades.push({mesh,v:dir.clone().multiplyScalar(mp.frag.speed).add(new THREE.Vector3(0,mp.frag.lift,0)),at:time+mp.frag.fuse,owner:s});return true;
+  if(fx){mesh.position.copy(origin);nades.push({mesh,v:dir.clone(),at:time+fx,fx:true});return true;}
+  const v=dir.clone().multiplyScalar(mp.frag.speed).add(new THREE.Vector3(0,mp.frag.lift,0));nades.push({mesh,v,at:time+mp.frag.fuse,owner:s});
+  if(netRole==='host')evts.push(['nade',mesh.position.toArray().map(Math.round),v.toArray().map(Math.round),mp.frag.fuse]);return true;
 }
 function updateFrags(dt){
   for(const n of [...nades]){
@@ -211,7 +213,7 @@ function updateFrags(dt){
     const hit=len>.001?world.raycast(new THREE.Ray(p.clone(),step.clone().normalize()),0,len+5):null;
     if(hit){const nrm=hit.normal??hit.face?.normal;if(nrm?.isVector3)n.v.reflect(nrm).multiplyScalar(.4);else n.v.set(0,Math.abs(n.v.y)<60?0:-n.v.y*.3,0);if(n.v.length()<30)n.v.set(0,0,0);}
     else p.add(step);
-    if(time>=n.at){explode(p.clone(),mp.frag.radius,mp.frag.damage,n.owner,'Frag');n.mesh.removeFromParent();n.mesh.geometry.dispose();n.mesh.material.dispose();nades.splice(nades.indexOf(n),1);}
+    if(time>=n.at){if(!n.fx)explode(p.clone(),mp.frag.radius,mp.frag.damage,n.owner,'Frag');n.mesh.removeFromParent();n.mesh.geometry.dispose();n.mesh.material.dispose();nades.splice(nades.indexOf(n),1);}
   }
 }
 function fragHuman(){const h=human();if(!h?.alive||!(h.frags>0))return;const dir=camera.getWorldDirection(new THREE.Vector3());
@@ -371,6 +373,7 @@ function clientData(conn,m){
     if(e[0]==='shot'&&e[1]!==myId){const a=vector(e[2]),b=vector(e[3]);tracer(a,b);audio.at(Math.max(0,1-a.distanceTo(camera.position)/2200)*.8,()=>audio.shot(WEAPONS[e[4]]??WEAPONS.halvard));}
     if(e[0]==='hit'&&e[1]===myId){hitUntil=time+.12;$('hitmarker').style.color=e[2]?'#db5140':'#eee';audio.play('hit',.6);}
     if(e[0]==='boom')boomFx(vector(e[1]),e[2]);
+    if(e[0]==='nade'&&nades.length<24)throwFrag(null,vector(e[1]),vector(e[2]),Math.min(5,Math.max(.1,+e[3]||2)));
     if(e[0]==='hurt'&&e[1]===myId)hurtFrom(new THREE.Vector3(+e[2]||0,0,+e[3]||0));
   }
   if(m.ended&&!ended)endMatch();
@@ -493,7 +496,7 @@ function update(dt){
       if(!s.alive){if(sim&&!ended&&time>=s.respawnAt){respawn(s);if(s.human)$('death').hidden=true;}if(!s.human)s.rig.update(dt);continue;}
       if(!s.human){if(s.remote||!sim)puppet(s,dt);else botThink(s,dt);s.rig.update(dt);}
     }
-    updateTags(dt,sim);if(sim)updateFrags(dt);
+    updateTags(dt,sim);updateFrags(dt);
     for(const k of [...strikes])if(time>=k.at){strikes.splice(strikes.indexOf(k),1);explode(k.pos,260,170,k.owner,'Airstrike');}
     for(const d of [...drones]){d.life-=dt;d.repath-=dt;const p=d.mesh.position;
       const foe=enemiesOf(d.owner).sort((a,b)=>feet(a).distanceTo(p)-feet(b).distanceTo(p))[0];

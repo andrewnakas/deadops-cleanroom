@@ -40,6 +40,12 @@ try {
   const ck = await client.evaluate(() => game.debug.getState());
   console.log(JSON.stringify({ hostKillsForClient: kills, clientView: { score: ck.score, me: ck.soldiers.find(s => s.human) } }));
   check('scores replicate to the client', ck.score[0] + ck.score[1] > 0);
+  let seen = 0;
+  for (let i = 0; i < 40 && !seen; i++) {
+    await host.evaluate(() => { const me = game.debug.soldiers.find(s => s.human); if (me.alive && game.debug.getState().nades === 0) { me.frags = 2; game.debug.throwFrag(); } });
+    for (let j = 0; j < 6 && !seen; j++) { await client.waitForTimeout(100); seen = await client.evaluate(() => game.debug.getState().nades); }
+  }
+  check('the client sees a host grenade in flight', seen > 0);
   await client.close(); await host.waitForTimeout(8000);
   const h2 = await host.evaluate(() => game.debug.soldiers.filter(s => s.remote).length);
   check('slot returns to a bot when the client leaves', h2 === 0);

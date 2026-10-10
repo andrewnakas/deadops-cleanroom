@@ -24,11 +24,16 @@ try {
     return { before, l: game.debug.loadout(), stored: JSON.parse(localStorage.getItem('graveshift.class')) }; });
   check('five classes are kept and the chosen one is saved', slots.before === 2 && slots.l.slots.length === 5 && slots.l.slot === 0 && slots.stored.slots.length === 5 && slots.stored.slot === 0);
   await page.evaluate(() => { game.debug.start(); document.getElementById('menu').hidden = true; });
-  const frag = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human); d.camera.rotation.x = .3; d.throwFrag(); const thrown = d.getState().nades, left = me.frags; d.step(3); d.hurtFrom([0, 0, 0]);
+  const frag = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human); d.camera.rotation.x = .3; d.throwFrag(); const thrown = d.getState().nades, left = me.frags; d.step(3);
     return { thrown, left, after: d.getState().nades }; });
   await page.waitForTimeout(400);
   check('a frag is thrown and bursts on its fuse', frag.thrown === 1 && frag.left === 1 && frag.after === 0, JSON.stringify(frag));
-  check('the damage arc shows', await page.evaluate(() => document.getElementById('hit-arc').style.opacity === '1' || !game.debug.soldiers.find(s => s.human).alive));
+  let arc = false;
+  for (let i = 0; i < 60 && !arc; i++) {
+    await page.evaluate(() => { if (game.debug.soldiers.find(s => s.human).alive) game.debug.hurtFrom([0, 0, 0]); });
+    await page.waitForTimeout(150); arc = await page.evaluate(() => document.getElementById('hit-arc').style.opacity === '1');
+  }
+  check('the damage arc shows', arc);
   let p = null;
   for (let i = 0; i < 400; i++) {
     p = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human), foes = d.soldiers.filter(s => s.team !== me.team && s.alive), eye = d.camera.position;
