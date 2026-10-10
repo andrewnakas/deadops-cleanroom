@@ -47,11 +47,12 @@ try {
   const me = await client.evaluate(() => game.debug.getState().soldiers.find(s => s.human));
   check('match starts for both', h.started && h.lobbyHidden && h.n === 6);
   check('joiner plays on the chosen team', h.remote.length === 1 && h.remote[0] === c0.players[1].team && me.team === c0.players[1].team, JSON.stringify({ host: h.remote, me: me.team }));
-  await host.evaluate(() => { for (let i = 0; i < 120 && !game.debug.getState().ended; i++) game.debug.step(10); });
-  await client.waitForFunction(() => game.debug.getState().ended && !document.getElementById('end').hidden, null, { timeout: 20000 });
+  // step in short bursts: a long blocked host drops the peer connection
+  for (let i = 0; i < 400; i++) { if (await host.evaluate(() => { if (!game.debug.getState().ended) game.debug.step(3); return game.debug.getState().ended; })) break; await host.waitForTimeout(30); }
+  await client.waitForFunction(() => game.debug.getState().ended && !document.getElementById('end').hidden, null, { timeout: 20000 }).catch(async e => { const q = p => p.evaluate(() => { const s = game.debug.getState(); return { ended: s.ended, time: Math.round(s.time), score: s.score, net: game.debug.net(), end: document.getElementById('end').hidden }; }); console.log('host', JSON.stringify(await q(host)), 'client', JSON.stringify(await q(client))); throw e; });
   check('the joiner is told to wait for the host after the match', (await client.textContent('#again')) === 'LEAVE ROOM' && (await host.textContent('#again')).startsWith('NEXT ARENA'));
   await host.click('#again');
-  for (const p of [host, client]) await p.waitForFunction(() => globalThis.game?.debug.getState().map === 'suburb' && !game.debug.getState().started && game.debug.lobby()?.players.length === 2, null, { timeout: 90000 });
+  for (const p of [host, client]) await p.waitForFunction(() => globalThis.game?.debug.getState().map === 'wharf' && !game.debug.getState().started && game.debug.lobby()?.players.length === 2, null, { timeout: 90000 });
   check('a rematch moves the room to the next arena', true);
   // a second room: the host removes a joiner from the lobby
   await client.close(); await host.close();

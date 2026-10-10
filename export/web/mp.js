@@ -6,6 +6,7 @@ import { GameAudio } from './sfx.js';
 import { configureAssets, assetLog } from './runtime-assets.js';
 import { buildSuburb } from './maps/suburb.js';
 import { buildYard } from './maps/yard.js';
+import { buildWharf } from './maps/wharf.js';
 import { loadAsset, instance, ClipRig } from './models.js';
 import { Gamepad } from './gamepad.js';
 import { createZombieTouch } from './zombies-touch.js';
@@ -26,12 +27,12 @@ const WEAPONS={};for(const id of [...mp.primaries,...mp.secondaries]){WEAPONS[id
 // Arena: chosen before loading (menu or ?map=); everyone in a room loads the host's arena.
 const savedMap=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.class')||'{}').map;}catch{return null;}})();
 const mapId=mp.maps[params.get('map')]?params.get('map'):params.get('join')||!mp.maps[savedMap]?'suburb':savedMap,arena=mp.maps[mapId];
-const map={suburb:buildSuburb,yard:buildYard}[mapId]();scene.background=new THREE.Color(map.sky);scene.fog=new THREE.Fog(map.sky,1500,4200);
+const map={suburb:buildSuburb,yard:buildYard,wharf:buildWharf}[mapId]();scene.background=new THREE.Color(map.sky);scene.fog=new THREE.Fog(map.sky,1500,4200);
 document.title='Graveshift: '+arena.name;
 let world,player,view,ready=false,active=false,primary=false,primaryPressed=false,ads=false,mousePrimary=false,mouseAim=false,time=0,ended=false,lastRendered=0,previous=performance.now(),fps=0,frames=0,frameTime=0;
 const botsOnly=params.get('bots')==='only',errors=[],soldiers=[],killfeed=[],fx=[],drones=[],strikes=[];
 const score=[0,0],scanUntil=[0,0];
-const lobby=[],clean=n=>String(n??'').replace(/[^\w .\-]/g,'').slice(0,14)||'Guest';const chat=[],say=t=>String(t??'').replace(/[^\w .,!?'\-:()]/g,'').trim().slice(0,80);let hostVote='',hostTeam=0,countdown=0,myReady=false,myTeam=0,lastLobby=null;
+const lobby=[],clean=n=>String(n??'').replace(/[^\w .\-]/g,'').slice(0,14)||'Guest';const chat=[],say=t=>String(t??'').replace(/[^\w .,!?'\-:()]/g,'').trim().slice(0,80);let lastSnap=0,hostVote='',hostTeam=0,countdown=0,myReady=false,myTeam=0,lastLobby=null;
 const net=new Net(),room=(params.get('join')??params.get('host')??'').toUpperCase().replace(/[^A-Z0-9]/g,''),evts=[];
 let netRole=params.get('join')?'client':params.get('host')?'host':'solo',snapT=0,sendT=0,myId=-1;
 addEventListener('error',e=>errors.push(e.message));addEventListener('unhandledrejection',e=>errors.push(String(e.reason)));
@@ -281,7 +282,9 @@ function botThink(s,dt){
     if(s.strafeT<=0){s.strafeT=.6+Math.random()*1.2;s.strafe=Math.random()<.5?-1:1;}
     const side=new THREE.Vector3(Math.cos(s.yaw),0,-Math.sin(s.yaw)).multiplyScalar(s.strafe*60);
     const ideal=arms.def.range*.6,toward=tf.clone().sub(me).setY(0).normalize().multiplyScalar(dist>ideal+200?80:dist<200?-60:0);
-    goal=me.clone().add(side).add(toward);s.path=[me.clone(),goal];s.pathIndex=1;s.fighting=true;
+    const grab=tags.length?nearestTag(me,280):null;
+    if(grab){if(!s.grab||s.repath<=0||s.pathIndex>=s.path.length){s.path=world.path(me,grab.pos.clone().setY(grab.pos.y-26));s.pathIndex=1;s.repath=.6;}}
+    else{goal=me.clone().add(side).add(toward);s.path=[me.clone(),goal];s.pathIndex=1;}s.grab=!!grab;s.fighting=true;
   }else{
     s.fighting=false;if(arms.state.mag<arms.def.clipSize*.4)arms.reload();
     let known=null;for(const [id,k] of s.know){if(time-k.t>7){s.know.delete(id);continue;}if(!known||k.t>known.t)known=k;}
@@ -390,7 +393,7 @@ function clientData(conn,m){
   if(m.t==='spawn'){const h=human();if(!h)return;h.frags=mp.frag.count;h.alive=true;h.health=h.maxHealth;h.arms=new Arms(h.o,h.o.perks);player.setSpawn(vector(m.pos));player.respawn();camera.rotation.set(0,m.yaw,0);view.currentId=null;view.equip(h.arms.def);$('death').hidden=true;return;}
   if(m.t==='lobby'){if(!started)drawLobby(m);return;}
   if(m.t==='kicked'){net.onLost=null;$('lobby').hidden=true;$('start').disabled=true;$('menu-status').textContent='The host removed you from the room';return;}
-  if(m.t!=='snap')return;
+  if(m.t!=='snap')return;lastSnap=performance.now();
   closeLobby();myId=m.you;if(mp.modes[m.mode]&&m.mode!==mode){mode=m.mode;matchInfo();}
   if(Array.isArray(m.zone)&&mode==='holdout'&&started){if(!zone||zone.i!==(m.zone[0]|0))setZone(m.zone[0]|0);if(zone)zone.owner=m.zone[1]===0||m.zone[1]===1?m.zone[1]:-1;}
   if(Array.isArray(m.tags)){const live=new Set(m.tags.map(a=>a[0]));for(const t of [...tags])if(!live.has(t.id))removeTag(t);
@@ -419,7 +422,7 @@ async function goOnline(){
   net.onStatus=text=>{$('net-status').textContent=netRole==='host'?`Room ${room} · ${text}`:text;};
   try{
     if(netRole==='host'){net.onData=hostData;net.onClose=hostClose;await net.host(room);const link=location.origin+location.pathname+'?join='+room+'&map='+mapId;$('net-status').innerHTML=`Room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a>`;sendLobby();}
-    else{net.onData=clientData;net.onLost=()=>{if(started||netRole!=='client')return;$('lobby').hidden=true;$('menu-status').textContent='The host left the lobby · waiting for the room';goOnline();};$('net-status').textContent='Joining room '+room+'…';for(let n=0;;n++){try{await net.join(room);break;}catch(e){if(n>=4)throw e;$('net-status').textContent='Waiting for room '+room+'…';await new Promise(r=>setTimeout(r,3000));}}net.send({t:'hello',name:loadout.name||'Guest',o:loadout});$('net-status').textContent='Connected to room '+room;}
+    else{net.onData=clientData;net.onLost=()=>{if(netRole!=='client')return;if(started){if(ended)return;ended=true;$('end').hidden=false;$('end-title').textContent='THE HOST LEFT THE MATCH';$('end-score').textContent=`${score[0]} — ${score[1]}`;$('end-xp').textContent=`+${matchAwards.xp} XP kept`;$('again').textContent='LEAVE ROOM';setActive(false);document.exitPointerLock?.();return;}$('lobby').hidden=true;$('menu-status').textContent='The host left the lobby · waiting for the room';goOnline();};$('net-status').textContent='Joining room '+room+'…';for(let n=0;;n++){try{await net.join(room);break;}catch(e){if(n>=4)throw e;$('net-status').textContent='Waiting for room '+room+'…';await new Promise(r=>setTimeout(r,3000));}}net.send({t:'hello',name:loadout.name||'Guest',o:loadout});$('net-status').textContent='Connected to room '+room;}
   }catch(e){$('net-status').textContent='Could not connect: '+(e.type??e.message);if(netRole==='host')netRole='solo';}
 }
 // ---------- match flow ----------
@@ -561,10 +564,12 @@ function hud(){
   hurtArc();
   board(ended);if(frames++%3===0)minimap();
 }
-const debug={lobbySay:t=>{$('lobby-say').value=t;lobbySay();},teleport:p=>{player.setSpawn(vector(p));player.respawn();},throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended,time,zone:zone?{i:zone.i,owner:zone.owner,pos:zone.pos.toArray()}:null,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
+const debug={tagList:()=>tags.map(t=>[t.pos.x,t.pos.y,t.pos.z,t.team]),lobbySay:t=>{$('lobby-say').value=t;lobbySay();},teleport:p=>{player.setSpawn(vector(p));player.respawn();},throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended,time,zone:zone?{i:zone.i,owner:zone.owner,pos:zone.pos.toArray()}:null,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
   step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,loadout:()=>JSON.parse(JSON.stringify(loadout)),progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});
+// A closed host tab is not always reported by the data channel: treat eight silent seconds as a lost host.
+setInterval(()=>{if(netRole==='client'&&started&&!ended&&lastSnap&&performance.now()-lastSnap>8000)net.onLost?.();},1000);
 try{
   $('load-label').textContent='Building '+arena.name;world=new World(scene,base,map);await world.load((t,p)=>{$('load-label').textContent=t;$('load-progress').style.width=p+'%';},{mapName:mapId});world.setDoors({openDoors:new Set()});
   player=new PlayerController(camera,world.physics,{spawn:vector(world.spawns[0].position),spawnIsEye:false,radius:14,height:70,eyeHeight:60,moveSpeed:190,sprintSpeed:285,crouchSpeed:95,gravity:800,jumpHeight:39,fallResetY:-800,maxSubSteps:12,groundSnapSpeed:10});

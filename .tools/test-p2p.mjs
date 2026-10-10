@@ -49,6 +49,11 @@ try {
   await client.close(); await host.waitForTimeout(8000);
   const h2 = await host.evaluate(() => game.debug.soldiers.filter(s => s.remote).length);
   check('slot returns to a bot when the client leaves', h2 === 0);
+  const client3 = await mk(`http://127.0.0.1:${port}/mp.html?join=${room}`);
+  await client3.waitForFunction(() => { const s = globalThis.game?.debug.getState(); return s?.started && s.soldiers.some(x => x.human); }, null, { timeout: 60000 });
+  await host.close();
+  await client3.waitForFunction(() => document.getElementById('end-title').textContent.includes('HOST LEFT') && !document.getElementById('end').hidden, null, { timeout: 30000 });
+  check('a joiner is told when the host leaves mid-match', (await client3.textContent('#again')) === 'LEAVE ROOM');
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   console.log('PASS p2p');
 } catch (e) { console.error('FAIL', e.message, errors.slice(0, 5)); process.exitCode = 1; }

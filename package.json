@@ -19,6 +19,8 @@
     "test:holdout": "node .tools/test-tdm.mjs 6 regular holdout",
     "test:holdout-yard": "node .tools/test-tdm.mjs 6 regular holdout yard",
     "test:yard": "node .tools/test-tdm.mjs 6 regular tdm yard",
+    "test:wharf": "node .tools/test-tdm.mjs 6 regular tdm wharf",
+    "bake:wharf": "node .tools/bake-map.mjs wharf",
     "bake:yard": "node .tools/bake-map.mjs yard",
     "test:p2p": "node .tools/test-p2p.mjs",
     "test:lobby": "node .tools/test-lobby.mjs",
