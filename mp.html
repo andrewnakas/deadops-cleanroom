@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Graveshift: Team Deathmatch at Maple Court</title>
+<title>Graveshift: Multiplayer</title>
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="ui.css"><link rel="stylesheet" href="touch-controls.css"><link rel="stylesheet" href="mp.css"><link rel="icon" href="data:,"></head><body class="menu-open">
 <div id="vignette"></div><div id="hurt"></div><div id="flash"></div>
 <canvas id="minimap" width="240" height="144"></canvas>
@@ -13,12 +13,13 @@
 <section id="end" hidden><h2 id="end-title"></h2><p id="end-score"></p><p id="end-xp"></p><button id="again">PLAY AGAIN</button></section>
 <section id="menu"><div class="menu-grain"></div><div class="menu-content">
 <div class="kicker">Graveshift <span>TEAM DEATHMATCH</span></div><p class="chapter" id="match-info">TEAM DEATHMATCH · FIRST TO 75 · MAPLE COURT</p>
-<h1>MAPLE<br>COURT<span>.</span></h1>
+<h1 id="arena-title">MAPLE<br>COURT<span>.</span></h1>
 <div id="loading"><span id="load-label">Loading…</span><div><i id="load-progress"></i></div></div>
 <div class="classes">
 <p class="streak-note" id="rank"></p><div id="rank-track"><i id="rank-bar"></i></div>
 <label>Primary <select id="cls-primary"></select></label><label>Secondary <select id="cls-secondary"></select></label>
 <label>Perk 1 <select id="cls-perk0"></select></label><label>Perk 2 <select id="cls-perk1"></select></label><label>Perk 3 <select id="cls-perk2"></select></label>
+<label style="grid-column:1/3">Arena <select id="cls-map"></select></label>
 <label style="grid-column:1/3">Mode <select id="cls-mode"></select></label>
 <label>Bots <select id="cls-diff"></select></label><label>Teams <select id="cls-size"></select></label>
 <label>Name <input id="cls-name" maxlength="14" placeholder="Guest"></label><label>Online <span class="online"><button id="host-room" type="button">HOST A ROOM</button><input id="join-code" maxlength="8" placeholder="CODE"><button id="join-room" type="button">JOIN</button></span></label>
