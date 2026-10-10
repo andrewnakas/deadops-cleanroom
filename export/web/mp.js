@@ -140,7 +140,7 @@ function respawn(s){
   const p=spawnPoint(s.team);if(s.human&&netRole!=='client'){s.perks=new Set(s.o.perks);s.maxHealth=s.o.perks.includes('thickskin')?125:100;}s.safeUntil=time+mp.spawnSafeSeconds;s.frags=mp.frag.count;s.alive=true;s.health=s.maxHealth;s.arms=new Arms(s.o,s.o.perks);s.target=null;s.know.clear();s.path=[];s.lastHurt=-9;
   if(s.human){player.setSpawn(vector(p.position));player.respawn();camera.rotation.set(0,p.yaw,0);view.currentId=null;view.equip(s.arms.def);}
   else{s.pos.fromArray(p.position);s.yaw=p.yaw;s.netPos=null;s.root.visible=true;s.rig.play('idle',true,1,0);s.wp=s.team===0?0:6;s.lane=['north','mid','south'][Math.floor(Math.random()*3)];
-    if(s.remote?.open)s.remote.send({t:'spawn',pos:p.position,yaw:p.yaw});}
+    if(s.remote?.open){s.netPos=null;s.remote.send({t:'spawn',pos:p.position,yaw:p.yaw});}}
 }
 // ---------- shooting ----------
 function hitTest(ray,far,shooter){
@@ -364,8 +364,13 @@ function hostData(conn,m){
   if(!s)return;
   s.lastNet=performance.now();
   if(m.t==='bye'){dropPeer(conn);return;}
-  if(m.t==='pos'&&s.alive){s.netPos=(s.netPos??new THREE.Vector3()).fromArray(m.p);s.yaw=+m.y||0;s.pitch=+m.x||0;}
-  if(m.t==='fire'&&s.alive){const w=s.arms.defs.findIndex(d=>d.id===m.w);if(w<0)return;s.arms.slot=w;s.lastFire=time;
+  if(m.t==='pos'&&s.alive){
+    // A joiner owns their movement; the host only refuses jumps no player could make. The allowance grows while
+    // updates are refused, so a real teleport (a fall reset) catches up within a second or two.
+    const p=vector(m.p),now=performance.now(),dtm=Math.min(5,(now-(s.posT??now))/1000);if(s.netPos&&p.distanceTo(s.netPos)>450*dtm+120)return;s.posT=now;s.netPos=(s.netPos??new THREE.Vector3()).copy(p);s.yaw=+m.y||0;s.pitch=+m.x||0;}
+  if(m.t==='fire'&&s.alive){const w=s.arms.defs.findIndex(d=>d.id===m.w);if(w<0)return;s.arms.slot=w;
+    // No faster than the weapon fires (a little slack for network bunching).
+    if(time-s.lastFire<s.arms.def.fireTime*.7)return;s.lastFire=time;
     const o=vector(m.o),mine=eye(s);fireShot(s,vector(m.d).normalize(),o.distanceTo(mine)<160?o:mine);}
   if(m.t==='streak'&&s.alive&&s.earned.length)useStreak(s,s.earned.shift());
   if(m.t==='frag'&&s.alive){const o=vector(m.o),mine=eye(s),d=vector(m.d);if(d.lengthSq()>.5)throwFrag(s,o.distanceTo(mine)<160?o:mine,d.normalize());}
@@ -532,6 +537,14 @@ function drawId(){const m=api.me;$('online-id').textContent=m?`ONLINE · ${clean
 // kill it is replayed from the killer's eye, looking at the victim, before the end screen. Any key or click skips it.
 const tape=[];let lastKill=null,killcam=null,tapeT=0;
 function record(){const now=performance.now();if(now-tapeT<100)return;tapeT=now;tape.push({t:now,s:soldiers.map(s=>[...feet(s).toArray(),s.human?camera.rotation.y:s.yaw,s.alive?1:0])});while(tape.length&&now-tape[0].t>6000)tape.shift();}
+// Footsteps: every 82 units a soldier walks, quieter with distance, so you can hear someone coming.
+function footsteps(){
+  for(const s of soldiers){
+    if(!s.alive){s.stepAt=null;continue;}const p=feet(s);if(!s.stepAt){s.stepAt=p.clone();continue;}
+    const d=Math.hypot(p.x-s.stepAt.x,p.z-s.stepAt.z);if(d<82)continue;s.stepAt.copy(p);if(d>400)continue;
+    const far=s.human?0:p.distanceTo(camera.position);if(s.human?player.onFloor&&active:far<800)audio.at(s.human?.45:Math.max(0,1-far/800)*.8,()=>audio.step('hard',.8));
+  }
+}
 function endMatch(){
   if(ended)return;ended=true;const k=lastKill&&time-lastKill.t<5?lastKill:null,killer=k&&soldiers[k.k],victim=k&&soldiers[k.v];
   if(!killer||!victim||tape.length<8||botsOnly){showEnd();return;}
@@ -626,7 +639,7 @@ function startMatch(){
   if(started)return;started=true;const names=[...mp.botNames].sort(()=>Math.random()-.5),size=loadout.size;
   if(!botsOnly)makeSoldier({name:'You',team:hostTeam,human:true});
   for(let t=0;t<2;t++)for(let i=soldiers.filter(s=>s.team===t).length;i<size;i++){const perks=mp.perks.map(slot=>slot[Math.floor(Math.random()*slot.length)].id);
-    makeSoldier({name:names.pop(),team:t,o:{primary:mp.primaries[Math.floor(Math.random()*mp.primaries.length)],secondary:'warden',perks,difficulty:loadout.difficulty}});}
+    makeSoldier({name:names.pop(),team:t,o:{primary:mp.primaries[Math.floor(Math.random()*mp.primaries.length)],secondary:'warden',perks,fitting:fitIds[Math.floor(Math.random()*fitIds.length)],difficulty:loadout.difficulty}});}
   for(const s of soldiers)respawn(s);
   for(const p of lobby.splice(0))if(p.conn.open)seat(p.conn,p.name,p.o,p.team);
   matchInfo();openGame();
@@ -634,7 +647,7 @@ function startMatch(){
 // ---------- frame ----------
 function update(dt){
   if(!ready||!started)return;
-  if(killcam){runKillcam(dt);return;}record();
+  if(killcam){runKillcam(dt);return;}record();footsteps();
   const gp=pad.read(),t=touch.input.read();if(gp.pressed.start){active?setActive(false):deploy();}
   const sim=netRole!=='client';
   if(active||botsOnly||netRole!=='solo'){

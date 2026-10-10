@@ -93,10 +93,45 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   `.tools/probe.mjs` (run an expression in a bots match). Cinder Yard's warehouse was re-shot after lowering its
   lamps: floor and cover are readable, the upper walls are still dim.
 
-## NOT PUBLISHED (2026-10-10)
-Everything from 2026-10-10 (overhaul, lobby, chat and vote, progression, Recovery and Holdout modes, Cinder Yard, Gull Wharf, host migration, quick play, challenges, fittings, MP announcer, match feel, class slots, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
-permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
-(gates were clean at the time: 0 failing licences, 0 mark hits).
+## Online services and backlog work (2026-10-10, evening) — all published
+- **Backend:** Cloudflare Worker `graveshift-api` + D1 database `graveshift`, live at
+  `https://graveshift-api.andrew-nakas.workers.dev` (source in `worker/`, URL in `data/mp.json` "backend").
+  The game is still peer-to-peer and works without it. A page on localhost ignores it unless opened with `?api=live`.
+- **Accounts:** anonymous, made on first online use (id + key in the browser, only a hash on the server). No email.
+- **Matchmaking and rooms:** QUICK PLAY asks the Worker for the open room closest to your rating, or hosts a new
+  listed one; the old fixed-code scan is the fallback. ROOMS lists open rooms. Public rooms start by themselves
+  once every joiner is ready. A migrated room re-lists under its new code.
+- **Ranked:** RANKED button, 4 v 4 TDM, rooms only through matchmaking. Team Elo, six divisions (Ember, Flint,
+  Iron, Steel, Cobalt, Zenith; shown after 5 games), 28-day seasons with a soft reset, a leaver takes a loss and
+  a 5 / 15 / 60 minute lock. **It is peer-hosted:** a result counts when more than half the players report the
+  same score (or, after 20 s, when nobody disagrees), so a colluding room can cheat it. Matches under 2 minutes,
+  or with only one account, are not counted.
+- **Leaderboards, stats, friends, party:** panels under the MP menu. Friends by 8-letter code or from recent
+  players; a party (up to 4) follows its leader into MP rooms. `+` and `!` next to a lobby player send a friend
+  request or a chat report; three reporters in a day mute that player's lobby chat for a day. Public-room chat
+  masks a short word list (`chatBlock` in `data/mp.json`).
+- **Relay (TURN):** the client and Worker support it, but **no relay key is set**, so strict NATs still fail.
+- **Zombies co-op (2–4):** HOST CO-OP / JOIN / QUICK CO-OP on the zombies menu (`index.html?host=CODE`). The host
+  owns zombies, rounds, doors, power, barricades and power-ups; each player keeps their own points, weapons and
+  perks. At zero health you go down (45 s to be revived by a teammate holding F for 3 s), then out until the next
+  round; everyone down ends the game. Joining mid-game gives catch-up points. Limits: the Lucky Crate is separate
+  for each player, drummers only lure on the host, gas clouds only hurt the host, no host migration, the world
+  keeps running while a player is in the pause menu, and the host tab must stay visible.
+- **Final killcam + after-action:** a match that ends on a kill replays it from the killer's position (skippable);
+  the scoreboard has score and assists; the end screen names the best player, your line and the next challenge.
+- **Small gaps closed:** footsteps for every soldier, bots use fittings, the host refuses joiner shots faster than
+  the weapon fires and movement jumps no player could make.
+- **Tests:** `test:api` (40 backend checks on a local Worker), `test:backend` (two browsers matched, match
+  reported, panels), `test:coop`, `test:killcam`; `tools/test-all.sh` runs 17 suites. A full run of the first 15
+  passed before the first publish; after that only the suites touching each change were rerun. `test:backend`
+  failed once with a local Worker connection error and passed on rerun.
+
+## Not built yet
+Free-for-all, flag capture and one-life bomb modes; selectable killstreaks; tactical equipment; player card and
+emblem; camos and per-weapon XP; fittings shown on the gun model; client prediction and lag compensation;
+co-op items above; friends/party for co-op; an authoritative server (the only way to make ranked tamper-proof).
+Not tested: two machines across the internet, the party follow in a browser (API-tested only), ranked played
+through to a rating change in a browser (API-tested only), and nobody has looked at the killcam or co-op by eye.
 
 ## Decisions
 - **Public title "Graveshift":** "Dead Ops" stays as the repo id only, because it is close to the name of a mini-game
@@ -116,18 +151,11 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 1. Visual polish: viewmodel arms and hands, lighting balance after power-on, more set dressing.
 2. Two more original MP arenas. Online play still needs a real two-machine session across the internet
    (only tested between two browsers on this PC; no TURN relay, so some strict NATs will fail to connect).
-3. MP polish: grenades for bots and the player, a death animation camera, spawn protection, footstep audio.
-
-## MP parity backlog (owner asked 2026-10-09; next session)
-Done: pre-game lobby (team select, ready-up, host remove, countdown, chat, arena vote), rematch with arena rotation,
-host migration, local XP, levels, medals and unlocks, three modes (TDM, Recovery, Holdout), three arenas.
-serverless quick play. Not built yet: skill-based matchmaking, parties, ranked and leaderboards, prestige and
-more challenges, killcam, friends/stats, zombies co-op, TURN relay.
-First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
 ## For the morning
-- **Run `sh tools/publish.sh`** (it was blocked for the unattended session), then:
-- Play zombies at the link above and TDM at `/mp.html` (also linked from the menu). Please look at feel, weapon balance and the map layout.
-- Try online: open `/mp.html`, press HOST A ROOM, and send the join link to a second device.
+- Play co-op with a second device: zombies menu → HOST CO-OP, send the link.
+- Try QUICK PLAY and RANKED from two devices on different networks (this is the untested part).
+- Relay for strict NATs: create a TURN key in the Cloudflare dashboard (Realtime → TURN), then from `worker/`:
+  `npx wrangler secret put TURN_KEY_ID` and `npx wrangler secret put TURN_KEY_TOKEN`.
 - Record the announcer: script in `assets/voice_lines.csv` (33 lines).
 - Confirm the title "Graveshift" (rename = `data/game.json` title + index.html).
