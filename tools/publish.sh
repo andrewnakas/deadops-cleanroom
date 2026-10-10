@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")/.."
 python -I tools/check_manifest.py
-python -I tools/check_marks.py export/web
+python -I tools/check_marks.py export/web worker
 python -I tools/make_credits.py
 git diff --quiet -- export/web/credits.html || { git add export/web/credits.html; git commit -qm "Regenerate credits"; }
 git push -q origin main

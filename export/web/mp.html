@@ -10,7 +10,7 @@
 <div id="weapon-panel"><div id="weapon-name"></div><div id="ammo"><strong id="mag">0</strong><span>/</span><span id="reserve">0</span></div><div id="reload-label"></div><div class="health-track"><i id="health-fill"></i></div><div id="kd"></div></div>
 <div id="streaks"></div>
 <section id="scoreboard" hidden><div id="scoreboard-body"></div></section>
-<section id="end" hidden><h2 id="end-title"></h2><p id="end-score"></p><p id="end-xp"></p><button id="again">PLAY AGAIN</button></section>
+<section id="end" hidden><h2 id="end-title"></h2><p id="end-score"></p><p id="end-xp"></p><p id="end-rank"></p><button id="again">PLAY AGAIN</button></section>
 <section id="menu"><div class="menu-grain"></div><div class="menu-content">
 <div class="kicker">Graveshift <span>TEAM DEATHMATCH</span></div><p class="chapter" id="match-info">TEAM DEATHMATCH · FIRST TO 75 · MAPLE COURT</p>
 <h1 id="arena-title">MAPLE<br>COURT<span>.</span></h1>
@@ -24,8 +24,9 @@
 <label style="grid-column:1/3">Arena <select id="cls-map"></select></label>
 <label style="grid-column:1/3">Mode <select id="cls-mode"></select></label>
 <label>Bots <select id="cls-diff"></select></label><label>Teams <select id="cls-size"></select></label>
-<label>Name <input id="cls-name" maxlength="14" placeholder="Guest"></label><label>Online <span class="online"><button id="quick-play" type="button">QUICK PLAY</button><button id="host-room" type="button">HOST A ROOM</button><input id="join-code" maxlength="8" placeholder="CODE"><button id="join-room" type="button">JOIN</button></span></label>
+<label>Name <input id="cls-name" maxlength="14" placeholder="Guest"></label><label>Online <span class="online"><button id="quick-play" type="button">QUICK PLAY</button><button id="ranked-play" type="button" hidden title="Peer-hosted: results are confirmed by the players in the match">RANKED</button><button id="host-room" type="button">HOST A ROOM</button><input id="join-code" maxlength="8" placeholder="CODE"><button id="join-room" type="button">JOIN</button></span></label>
 <div id="lobby" hidden></div>
+<p class="streak-note" id="online-id"></p><div id="hub-tabs" hidden><button data-hub="rooms" type="button">ROOMS</button><button data-hub="board" type="button">LEADERBOARD</button><button data-hub="stats" type="button">STATS</button><button data-hub="friends" type="button">FRIENDS · PARTY</button></div><div id="hub" hidden></div>
 <p class="streak-note" id="net-status">Solo vs bots. Host a room and share the link to play with friends (peer-to-peer).</p>
 <p class="streak-note">Killstreaks · <span id="streak-list"></span></p></div>
 <button id="start" disabled>DEPLOY <span>→</span></button><p id="menu-status"></p>

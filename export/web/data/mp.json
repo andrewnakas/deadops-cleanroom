@@ -30,6 +30,8 @@
     "revolver":{"damage": 55, "minDamage": 40, "range": 1000, "headMultiplier": 1.6, "spread": 0.03}
   },
   "publicRooms": 6,
+  "backend": "",
+  "chatBlock": ["fuck\\w*", "shit\\w*", "bitch\\w*", "cunt\\w*", "asshole\\w*"],
   "fittings": {
     "none": {"name": "None"},
     "longmag": {"name": "Long Magazine", "blurb": "half again the rounds, slower reload", "mods": {"clipSize": 1.5, "reloadTime": 1.15}},
