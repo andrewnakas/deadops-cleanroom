@@ -121,7 +121,7 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   the scoreboard has score and assists; the end screen names the best player, your line and the next challenge.
 - **Small gaps closed:** footsteps for every soldier, bots use fittings, the host refuses joiner shots faster than
   the weapon fires and movement jumps no player could make.
-- **Tests:** `test:api` (40 backend checks on a local Worker), `test:backend` (two browsers matched, match
+- **Tests:** `test:api` (backend checks on a local Worker), `test:backend` (two browsers matched, match
   reported, panels), `test:coop`, `test:killcam`; `tools/test-all.sh` runs 17 suites. A full run of the first 15
   passed before the first publish; after that only the suites touching each change were rerun. `test:backend`
   failed once with a local Worker connection error and passed on rerun.
