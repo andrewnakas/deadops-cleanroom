@@ -1,7 +1,17 @@
 // Local progression for multiplayer: XP, levels, medals and unlocks. Stored in this browser only.
 export const XP = { kill: 100, head: 25, pair: 50, trio: 100, payback: 50, reach: 50, opening: 50, win: 400, finish: 150, collect: 50, deny: 25, hold: 50 };
 export const MEDALS = { head: 'Sharp Eye', pair: 'Pair', trio: 'Trio', payback: 'Payback', reach: 'Long Reach', opening: 'Opening Shot' };
-export const MAX_LEVEL = 30;
+export const MAX_LEVEL = 30, MAX_TOUR = 5;
+// Lifetime challenges: each tier pays 500 XP times its number, once.
+export const CHALLENGES = [
+  { id: 'kills', name: 'Marksman', tiers: [25, 100, 250, 500, 1000] },
+  { id: 'head', name: 'Clean Shot', tiers: [10, 25, 50, 100] },
+  { id: 'wins', name: 'Closer', tiers: [3, 10, 25, 50] },
+  { id: 'matches', name: 'Regular', tiers: [5, 20, 50] },
+  { id: 'trio', name: 'Three In A Row', tiers: [3, 10, 25] },
+  { id: 'payback', name: 'Settled', tiers: [5, 20, 50] },
+  { id: 'reach', name: 'Far Sighted', tiers: [5, 20, 50] },
+];
 const KEY = 'graveshift.progress';
 
 // Total XP needed to reach a level (level 1 = 0).
@@ -26,7 +36,9 @@ const count = v => Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0;
 export function sanitize(raw) {
   const r = raw && typeof raw === 'object' ? raw : {}, medals = {};
   for (const id of Object.keys(MEDALS)) medals[id] = count(r.medals?.[id]);
-  return { xp: count(r.xp), kills: count(r.kills), deaths: count(r.deaths), matches: count(r.matches), wins: count(r.wins), medals };
+  const done = {};
+  for (const c of CHALLENGES) done[c.id] = Math.min(c.tiers.length, count(r.done?.[c.id]));
+  return { xp: count(r.xp), kills: count(r.kills), deaths: count(r.deaths), matches: count(r.matches), wins: count(r.wins), tour: Math.min(MAX_TOUR, count(r.tour)), medals, done };
 }
 export function loadProgress(storage = globalThis.localStorage) { try { return sanitize(JSON.parse(storage.getItem(KEY) || '{}')); } catch { return sanitize(); } }
 export function saveProgress(p, storage = globalThis.localStorage) { try { storage.setItem(KEY, JSON.stringify(sanitize(p))); } catch {} }
@@ -40,6 +52,20 @@ export function grant(profile, awards) {
   const after = levelOf(profile.xp);
   return { xp, levelUp: after > before ? after : 0 };
 }
+
+// A challenge counts a profile total or a medal.
+export const challengeCount = (profile, id) => id in profile.medals ? profile.medals[id] : profile[id] ?? 0;
+// Pays every tier reached since the last call; returns [{ name, tier, xp }].
+export function claimChallenges(profile) {
+  const out = [];
+  for (const c of CHALLENGES) while (profile.done[c.id] < c.tiers.length && challengeCount(profile, c.id) >= c.tiers[profile.done[c.id]]) {
+    const tier = ++profile.done[c.id], xp = 500 * tier; profile.xp += xp; out.push({ name: c.name, tier, xp });
+  }
+  return out;
+}
+// At the level cap a profile can start a new tour: level and unlocks reset, totals and challenges stay.
+export const canTour = profile => levelOf(profile.xp) >= MAX_LEVEL && profile.tour < MAX_TOUR;
+export function startTour(profile) { if (!canTour(profile)) return false; profile.xp = 0; profile.tour++; return true; }
 
 // Unlock table: { id: level }. Anything not listed is open from level 1.
 export const unlockLevel = (table, id) => table?.[id] ?? 1;
