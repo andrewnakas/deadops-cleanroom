@@ -9,6 +9,7 @@ import { loadAsset, instance, ClipRig } from './models.js';
 import { Gamepad } from './gamepad.js';
 import { createZombieTouch } from './zombies-touch.js';
 import { Net } from './net.js';
+import { loadProgress, saveProgress, grant, killAwards, levelOf, levelProgress, xpForLevel, unlockLevel, isUnlocked, legalPick, MEDALS, MAX_LEVEL } from './progress.js';
 
 // Team deathmatch: two teams of soldiers (you + bots) on Maple Court, first to the score limit.
 const $=id=>document.getElementById(id),keys=new Set(),audio=new GameAudio(),pad=new Gamepad(),params=new URLSearchParams(location.search);
@@ -31,6 +32,19 @@ let netRole=params.get('join')?'client':params.get('host')?'host':'solo',snapT=0
 addEventListener('error',e=>errors.push(e.message));addEventListener('unhandledrejection',e=>errors.push(String(e.reason)));
 const saved=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.class')||'{}');}catch{return {};}})();
 const loadout={primary:saved.primary??'halvard',secondary:saved.secondary??'warden',perks:saved.perks??['fleetfoot','steady','hardline'],difficulty:params.get('diff')??saved.difficulty??'regular',size:+(params.get('size')??saved.size??6)};
+// Local progression: XP, levels and unlocks live in this browser only.
+const prof=loadProgress(),matchAwards={xp:0,medals:{},startLevel:levelOf(prof.xp)};let lastKillT=-99,chainN=0,lastKiller=null,opened=false,popUntil=0;
+loadout.primary=legalPick(mp.unlocks,mp.primaries,loadout.primary,matchAwards.startLevel);loadout.secondary=legalPick(mp.unlocks,mp.secondaries,loadout.secondary,matchAwards.startLevel);
+loadout.perks=mp.perks.map((slot,i)=>legalPick(mp.unlocks,slot.map(p=>p.id),loadout.perks[i],matchAwards.startLevel));
+function award(list){
+  if(botsOnly)return;const r=grant(prof,list);matchAwards.xp+=r.xp;for(const a of list)if(MEDALS[a])matchAwards.medals[a]=(matchAwards.medals[a]??0)+1;saveProgress(prof);
+  $('xp-pop').textContent='+'+r.xp+list.filter(a=>MEDALS[a]).map(a=>' · '+MEDALS[a]).join('');popUntil=performance.now()+1800;
+  if(r.levelUp){toast('LEVEL '+r.levelUp+' REACHED',4);audio.play('powerup_spawn');}
+}
+function rankLine(){
+  const l=levelOf(prof.xp),next=Object.entries(mp.unlocks).filter(([,v])=>v>l).sort((a,b)=>a[1]-b[1])[0],label=id=>WEAPONS[id]?.name??perkName(id);
+  return `LEVEL ${l}${l>=MAX_LEVEL?' (MAX)':` · ${prof.xp-xpForLevel(l)} / ${xpForLevel(l+1)-xpForLevel(l)} XP`} · ${prof.kills} kills · ${prof.wins}/${prof.matches} wins${next?` · next unlock: ${label(next[0])} at level ${next[1]}`:''}`;
+}
 const perkName=id=>mp.perks.flat().find(p=>p.id===id)?.name??id;
 const eyeH=58,up=new THREE.Vector3(0,1,0);
 
@@ -117,9 +131,12 @@ function damage(o,n,by,weapon,head=false){
 function kill(o,by,weapon,head){
   o.alive=false;o.deaths++;o.streak=0;o.respawnAt=time+mp.respawnDelay;
   if(!o.human){o.rig.play('death',false,1,.1);setTimeout(()=>{if(!o.alive)o.root.visible=false;},2200);}
-  else{deathCam=by&&by!==o?by:null;$('death').hidden=false;$('death').textContent=(by&&by!==o?'Killed by '+by.name:'You died')+' · respawning…';}
+  else{lastKiller=by&&by!==o?by:null;prof.deaths++;deathCam=by&&by!==o?by:null;$('death').hidden=false;$('death').textContent=(by&&by!==o?'Killed by '+by.name:'You died')+' · respawning…';}
   if(by&&by!==o&&by.team!==o.team){
-    by.kills++;by.streak++;score[by.team]++;if(by.perks.has('scavenger'))by.arms.refill();
+    by.kills++;by.streak++;score[by.team]++;
+    if(by.human){chainN=time-lastKillT<4?chainN+1:1;lastKillT=time;const gun=!mp.streaks.some(st=>st.name===weapon);
+      award(killAwards({head,distance:gun?feet(o).distanceTo(feet(by)):0,chain:chainN,payback:o===lastKiller,opening:!opened}));if(o===lastKiller)lastKiller=null;}
+    opened=true;if(by.perks.has('scavenger'))by.arms.refill();
     for(const st of mp.streaks)if(by.streak===st.kills-(by.perks.has('hardline')?1:0)){by.earned.push(st.id);if(by.human){toast(st.name+' ready · press 5',4);audio.play('powerup_spawn');}}
     if(!by.human&&!by.remote)while(by.earned.length)useStreak(by,by.earned.shift());
   }else if(by===o)score[o.team===0?1:0]+=0;
@@ -289,7 +306,7 @@ function clientData(conn,m){
   for(const d of m.sol){
     let s=soldiers[d.id];
     if(!s){s=makeSoldier({name:clean(d.name),team:d.team?1:0,human:d.id===myId,o:d.id===myId?loadout:{primary:mp.primaries.includes(d.w)?d.w:'halvard',secondary:'warden',perks:[]}});started=true;}
-    const was=s.alive;s.kills=d.k;s.deaths=d.d;s.streak=d.s;
+    const was=s.alive;if(s.human){for(let i=s.kills;i<Math.min(d.k,s.kills+5);i++)award(['kill']);if(was&&!d.a)prof.deaths++;}s.kills=d.k;s.deaths=d.d;s.streak=d.s;
     if(s.human){if(d.h<s.health-.5&&d.a)audio.play('hurt');s.health=d.h;s.earned=d.e;if(was&&!d.a){s.alive=false;$('death').hidden=false;$('death').textContent='You died · respawning…';}}
     else{s.name=clean(d.name);s.netPos=(s.netPos??new THREE.Vector3()).fromArray(d.p);s.yaw=d.y;s.health=d.h;if(d.f)s.lastFire=time;
       if(!was&&d.a){s.pos.copy(s.netPos);s.root.visible=true;s.rig.play('idle',true,1,0);}
@@ -315,7 +332,9 @@ async function goOnline(){
 function endMatch(){
   ended=true;const w=score[0]===score[1]?null:score[0]>score[1]?0:1;
   $('end').hidden=false;$('end-title').textContent=w===null?'DRAW':`TEAM ${mp.teams[w].name.toUpperCase()} WINS`;
-  $('end-score').textContent=`${score[0]} — ${score[1]}`;board(true);setActive(false);document.exitPointerLock?.();
+  $('end-score').textContent=`${score[0]} — ${score[1]}`;
+  if(human()){const list=['finish'];if(w===humanTeam()){list.push('win');prof.wins++;}prof.matches++;award(list);const l=levelOf(prof.xp);
+    $('end-xp').textContent=`+${matchAwards.xp} XP · level ${matchAwards.startLevel}${l>matchAwards.startLevel?' → '+l:''}`+Object.entries(matchAwards.medals).map(([id,n])=>` · ${MEDALS[id]} ×${n}`).join('');}board(true);setActive(false);document.exitPointerLock?.();
 }
 function board(force){
   const show=force||keys.has('Tab')||pad.state?.pressedBack;$('scoreboard').hidden=!show;if(!show)return;
@@ -353,8 +372,10 @@ function streakHuman(){const h=human();if(!h?.alive||!h.earned.length)return;if(
 // ---------- menu ----------
 function buildMenu(){
   const opt=(list,sel,label)=>list.map(id=>`<option value="${id}" ${id===sel?'selected':''}>${label(id)}</option>`).join('');
-  $('cls-primary').innerHTML=opt(mp.primaries,loadout.primary,id=>WEAPONS[id].name);$('cls-secondary').innerHTML=opt(mp.secondaries,loadout.secondary,id=>WEAPONS[id].name);
-  mp.perks.forEach((slot,i)=>{$('cls-perk'+i).innerHTML=slot.map(p=>`<option value="${p.id}" ${loadout.perks[i]===p.id?'selected':''}>${p.name} — ${p.blurb}</option>`).join('');});
+  const lvl=levelOf(prof.xp),gated=(list,sel,label)=>list.map(id=>{const open=isUnlocked(mp.unlocks,id,lvl);return `<option value="${id}" ${id===sel?'selected':''} ${open?'':'disabled'}>${label(id)}${open?'':' · unlocks at level '+unlockLevel(mp.unlocks,id)}</option>`;}).join('');
+  $('cls-primary').innerHTML=gated(mp.primaries,loadout.primary,id=>WEAPONS[id].name);$('cls-secondary').innerHTML=gated(mp.secondaries,loadout.secondary,id=>WEAPONS[id].name);
+  mp.perks.forEach((slot,i)=>{$('cls-perk'+i).innerHTML=gated(slot.map(p=>p.id),loadout.perks[i],id=>{const p=slot.find(x=>x.id===id);return p.name+' — '+p.blurb;});});
+  $('rank').textContent=rankLine();$('rank-bar').style.width=(100*levelProgress(prof.xp))+'%';
   $('cls-diff').innerHTML=opt(Object.keys(mp.difficulty),loadout.difficulty,id=>id[0].toUpperCase()+id.slice(1));
   $('cls-size').innerHTML=opt(['2','3','4','5','6'],String(loadout.size),n=>n+' v '+n);
   $('cls-name').value=saved.name??'';$('host-room').addEventListener('click',()=>{readMenu();location.search='?host='+Math.random().toString(36).slice(2,7).toUpperCase();});
@@ -429,7 +450,7 @@ function hud(){
   const h=human(),m=Math.max(0,mp.timeLimit-time);
   $('score-a').textContent=score[0];$('score-b').textContent=score[1];$('clock').textContent=Math.floor(m/60)+':'+String(Math.floor(m%60)).padStart(2,'0');
   $('killfeed').innerHTML=killfeed.filter(k=>time-k.t<6).map(k=>`<div>${k.text}</div>`).join('');
-  if(toastUntil<time)$('toast').textContent='';$('hitmarker').style.opacity=hitUntil>time?1:0;
+  if(toastUntil<time)$('toast').textContent='';$('xp-pop').style.opacity=popUntil>performance.now()?1:0;$('hitmarker').style.opacity=hitUntil>time?1:0;
   if(h){$('weapon-name').textContent=h.arms.def.name;$('mag').textContent=h.arms.state.mag;$('reserve').textContent=h.arms.state.reserve;$('reload-label').textContent=h.arms.reloadLeft>0?'RELOADING':h.arms.state.mag===0?'RELOAD':'';
     $('health-fill').style.width=(100*Math.max(0,h.health)/h.maxHealth)+'%';$('hurt').style.opacity=h.alive&&h.health<h.maxHealth?(1-h.health/h.maxHealth)*.8:0;
     $('streaks').innerHTML=`<span>STREAK ${h.streak}</span>`+mp.streaks.map(s=>`<span class="${h.earned.includes(s.id)?'ready':''}">${s.kills-(h.perks.has('hardline')?1:0)} · ${s.name}</span>`).join('')+(h.earned.length?'<b>5 / D-PAD ▼ to call in</b>':'');
@@ -437,7 +458,7 @@ function hud(){
   board(ended);if(frames++%3===0)minimap();
 }
 const debug={getState:()=>({ready,started,ended,time,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
-  step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
+  step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});
 try{

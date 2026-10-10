@@ -36,9 +36,17 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   teams, lets each player switch team and ready up, lets the host remove a player, and starts on a 3 second
   countdown. Joining after the start still takes over a bot. Player names are stripped to plain characters on both
   ends. `npm run test:lobby` passes 10/10.
+- **Local progression (2026-10-10):** XP for kills and for finishing or winning a match, six medals (Sharp Eye,
+  Pair, Trio, Payback, Long Reach, Opening Shot), 30 levels, and weapons and perks that unlock by level (all open by
+  level 9; table in `data/mp.json` "unlocks"). Saved in the browser only, so it is unranked and can be edited by the
+  player. `npm run test:progress` passes 8/8.
+- **Online hardening (2026-10-10):** a joiner's killfeed keeps only the name colour and italic tags from the host,
+  and joining retries for about 15 s so PLAY AGAIN on both sides brings the room back to the lobby.
+- **Known flake:** `test:p2p` failed twice on its first page load when run straight after another suite and passed
+  on rerun each time.
 
 ## NOT PUBLISHED (2026-10-10)
-The three commits of the overhaul and the lobby are **local only**. `sh tools/publish.sh` was blocked by the session's
+Everything from 2026-10-10 (overhaul, lobby, progression, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
 permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
 (gates were clean at the time: 0 failing licences, 0 mark hits).
 
@@ -63,8 +71,8 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 3. MP polish: grenades for bots and the player, a death animation camera, spawn protection, footstep audio.
 
 ## MP parity backlog (owner asked 2026-10-09; next session)
-Done: pre-game lobby (team select, ready-up, host remove, countdown). Not built yet: lobby chat and map vote, return to lobby after a match, public matchmaking and quick play,
-parties, host migration, ranked and leaderboards, XP/levels/unlocks/prestige, medals, class slots and attachments,
+Done: pre-game lobby (team select, ready-up, host remove, countdown). local XP, levels, medals and unlocks. Not built yet: lobby chat and map vote, public matchmaking and quick play,
+parties, host migration, ranked and leaderboards, prestige and challenges, class slots and attachments,
 more modes (only TDM), arenas 2 and 3, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
