@@ -64,6 +64,15 @@ try {
   await host2.click('#lobby button[data-kick]');
   await client2.waitForFunction(() => document.getElementById('menu-status').textContent.includes('removed'), null, { timeout: 10000 });
   check('host can remove a player', (await lobby(host2)).players.length === 1);
+  // quick play: the first player opens public room 1, the second finds and joins it
+  const pre = 'Q' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  await client2.close(); await host2.close();
+  const q1 = await mk(`http://127.0.0.1:${port}/mp.html?quick=${pre}&size=2`);
+  await q1.waitForFunction(() => globalThis.game?.debug.net().status.startsWith('hosting'), null, { timeout: 90000 });
+  check('quick play opens the first public room when none exists', (await q1.evaluate(() => game.debug.getState().room)) === pre + '1');
+  const q2 = await mk(`http://127.0.0.1:${port}/mp.html?quick=${pre}`);
+  await q1.waitForFunction(() => game.debug.lobby()?.players.length === 2, null, { timeout: 90000 });
+  check('quick play joins an open public room', (await q2.evaluate(() => game.debug.net().role)) === 'client' && (await q2.evaluate(() => game.debug.getState().room)) === pre + '1');
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   console.log('PASS lobby');
 } catch (e) { console.error('FAIL', e.message, errors.slice(0, 5)); process.exitCode = 1; }

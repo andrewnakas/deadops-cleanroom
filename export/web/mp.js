@@ -341,6 +341,7 @@ function puppet(s,dt){
 function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,diff:loadout.difficulty,zone:zone?[zone.i,zone.owner]:null,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
   sol:soldiers.map(s=>({id:s.id,name:s.human?(loadout.name||'Host'):s.name,team:s.team,a:s.alive,h:Math.round(s.health),k:s.kills,d:s.deaths,s:s.streak,e:s.earned,r:s.remote?1:0,p:feet(s).toArray().map(v=>Math.round(v*10)/10),y:s.human?camera.rotation.y:s.yaw,w:s.arms.def.id,f:time-s.lastFire<.2?1:0}))};}
 function hostData(conn,m){
+  if(m.t==='peek'){conn.send({t:'peek',map:mapId,started,free:started?soldiers.filter(x=>!x.human&&!x.remote).length:loadout.size*2-1-lobby.length});return;}
   const s=net.conns.get(conn);
   if(m.t==='hello'){
     const o={fitting:mp.fittings[m.o?.fitting]?m.o.fitting:'none',primary:mp.primaries.includes(m.o?.primary)?m.o.primary:'halvard',secondary:mp.secondaries.includes(m.o?.secondary)?m.o.secondary:'warden',perks:(m.o?.perks??[]).filter(id=>mp.perks.flat().some(p=>p.id===id)).slice(0,3)},name=clean(m.name);
@@ -454,6 +455,18 @@ function clientData(conn,m){
   }
   if(m.ended&&!ended)endMatch();
 }
+// Quick play without a server: public rooms use a short list of fixed codes. Ask each in turn; join the first
+// with a free seat, otherwise open the first code nobody holds.
+async function quickPlay(prefix){
+  const probe=new Net();let free=null;$('menu-status').textContent='Looking for a public match…';
+  for(let i=1;i<=mp.publicRooms;i++){
+    const code=prefix+i;try{await probe.join(code);}catch{free??=code;continue;}
+    const info=await new Promise(done=>{probe.onData=(c,m)=>{if(m?.t==='peek')done(m);};probe.send({t:'peek'});setTimeout(()=>done(null),4000);});
+    if(info&&info.free>0){probe.peer?.destroy();location.search='?join='+code+(mp.maps[info.map]?'&map='+info.map:'');return;}
+  }
+  probe.peer?.destroy();
+  if(free)location.search='?host='+free+'&map='+mapId;else $('menu-status').textContent='Every public room is full · try again in a minute';
+}
 async function goOnline(){
   if(netRole==='solo')return;
   net.onStatus=text=>{$('net-status').textContent=netRole==='host'?`Room ${room} · ${text}`:text;};
@@ -520,7 +533,7 @@ function buildMenu(){
   $('cls-size').innerHTML=opt(['2','3','4','5','6'],String(loadout.size),n=>n+' v '+n);$('cls-map').innerHTML=opt(Object.keys(mp.maps),mapId,id=>mp.maps[id].name+' — '+mp.maps[id].blurb);$('cls-map').addEventListener('change',()=>{if(started)return;readMenu();const q=new URLSearchParams(location.search);q.set('map',$('cls-map').value);location.search='?'+q;});$('cls-map').disabled=netRole==='client';
   $('arena-title').innerHTML=arena.name.toUpperCase().split(' ').map(clean).join('<br>')+'<span>.</span>';
   $('cls-mode').innerHTML=opt(Object.keys(mp.modes),mode,id=>mp.modes[id].name+' — '+mp.modes[id].blurb);matchInfo();
-  $('cls-name').value=saved.name??'';$('host-room').addEventListener('click',()=>{readMenu();location.search='?host='+Math.random().toString(36).slice(2,7).toUpperCase();});
+  $('cls-name').value=saved.name??'';$('quick-play').addEventListener('click',()=>{readMenu();location.search='?quick=';});$('host-room').addEventListener('click',()=>{readMenu();location.search='?host='+Math.random().toString(36).slice(2,7).toUpperCase();});
   $('join-room').addEventListener('click',()=>{readMenu();const c=$('join-code').value.trim().toUpperCase();if(c)location.search='?join='+c;});
   $('streak-list').textContent=mp.streaks.map(s=>`${s.kills} kills: ${s.name}`).join(' · ');
 }
@@ -615,7 +628,7 @@ try{
   view=new ViewModel(viewScene,base,audio);await Promise.all([loadTeams(),view.load(),audio.load()]);
   buildMenu();ready=true;$('loading').hidden=true;$('start').disabled=false;$('menu-status').textContent=botsOnly?'Spectating a bots-only match':pad.connected?'Press START to deploy':'Click DEPLOY · Tab shows the scoreboard';
   if(botsOnly){startMatch();setActive(true);}
-  loadout.name=saved.name??'';await goOnline();
+  loadout.name=saved.name??'';if(params.has('quick'))await quickPlay((params.get('quick').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6))||'PUB');else await goOnline();
 }catch(e){console.error(e);errors.push(String(e));$('load-label').textContent='Unable to start: '+e.message;}
 $('start').addEventListener('click',deploy);renderer.domElement.addEventListener('click',()=>{if(!active&&started&&!ended)deploy();});$('again').addEventListener('click',()=>{if(netRole==='host')changeMap(nextMap());else if(netRole==='client')location.search='';else location.reload();});
 $('lobby').addEventListener('click',lobbyClick);$('lobby').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lobby-say')lobbySay();});for(const id of ['cls-size','cls-diff','cls-name','cls-mode'])$(id).addEventListener('change',()=>{if(netRole==='host'&&!started){readMenu();sendLobby();}});

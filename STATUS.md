@@ -80,6 +80,12 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
 - **Fittings (2026-10-10):** one fitting for the primary in each class: Long Magazine (level 2), Long Barrel (5),
   Light Bolt (8), Muffler (10, shots stay off the minimap). Numbers are in `"fittings"` in `data/mp.json`; they
   have no model on the gun, and bots do not use them. Only the Long Magazine is covered by a test.
+- **Quick play (2026-10-10):** QUICK PLAY needs no server. Public rooms are the fixed codes `PUB1`..`PUB6`
+  (`publicRooms` in `data/mp.json`); the page asks each in turn, joins the first with a free seat (lobby or a match
+  in progress, taking a bot's place), and otherwise opens the first unused code as host. Tested with a private
+  prefix (`?quick=<prefix>`) between two headless browsers. Things to know before it goes live: it puts strangers
+  in one room with the lobby chat (letters, digits, basic punctuation only; no filter or reporting), a public host
+  still has to press START MATCH, a migrated room changes code and is no longer found, and six rooms is the cap.
 - **Bots in Recovery** pick up a marker within 280 units even while fighting (matches on Gull Wharf were running
   out the clock otherwise; they still reach the 10-minute limit there about as often as the score limit).
 - **Tests:** suites wait for the local server to answer instead of a fixed delay (this was the likely cause of the
@@ -88,7 +94,7 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   lamps: floor and cover are readable, the upper walls are still dim.
 
 ## NOT PUBLISHED (2026-10-10)
-Everything from 2026-10-10 (overhaul, lobby, chat and vote, progression, Recovery and Holdout modes, Cinder Yard, Gull Wharf, match feel, class slots, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
+Everything from 2026-10-10 (overhaul, lobby, chat and vote, progression, Recovery and Holdout modes, Cinder Yard, Gull Wharf, host migration, quick play, challenges, fittings, MP announcer, match feel, class slots, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
 permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
 (gates were clean at the time: 0 failing licences, 0 mark hits).
 
@@ -115,7 +121,7 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 ## MP parity backlog (owner asked 2026-10-09; next session)
 Done: pre-game lobby (team select, ready-up, host remove, countdown, chat, arena vote), rematch with arena rotation,
 host migration, local XP, levels, medals and unlocks, three modes (TDM, Recovery, Holdout), three arenas.
-Not built yet: public matchmaking and quick play, parties, ranked and leaderboards, prestige and
+serverless quick play. Not built yet: skill-based matchmaking, parties, ranked and leaderboards, prestige and
 more challenges, killcam, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
