@@ -6,7 +6,7 @@
 <div id="vignette"></div><div id="hurt"></div><div id="flash"></div>
 <canvas id="minimap" width="240" height="144"></canvas>
 <div id="scorebar"><span class="a" id="score-a">0</span><span id="clock">10:00</span><span class="b" id="score-b">0</span></div>
-<div id="killfeed"></div><div id="crosshair">＋</div><div id="hitmarker">×</div><div id="toast"></div><div id="xp-pop"></div><div id="death" hidden></div>
+<div id="killfeed"></div><div id="crosshair">＋</div><div id="hitmarker">×</div><div id="toast"></div><div id="hit-arc"></div><div id="xp-pop"></div><div id="death" hidden></div>
 <div id="weapon-panel"><div id="weapon-name"></div><div id="ammo"><strong id="mag">0</strong><span>/</span><span id="reserve">0</span></div><div id="reload-label"></div><div class="health-track"><i id="health-fill"></i></div><div id="kd"></div></div>
 <div id="streaks"></div>
 <section id="scoreboard" hidden><div id="scoreboard-body"></div></section>
@@ -27,7 +27,7 @@
 <p class="streak-note" id="net-status">Solo vs bots. Host a room and share the link to play with friends (peer-to-peer).</p>
 <p class="streak-note">Killstreaks · <span id="streak-list"></span></p></div>
 <button id="start" disabled>DEPLOY <span>→</span></button><p id="menu-status"></p>
-<div class="menu-controls"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>MOUSE</kbd> AIM / SHOOT</span><span><kbd>R</kbd> RELOAD</span><span><kbd>Q</kbd> SWAP</span><span><kbd>5</kbd> KILLSTREAK</span><span><kbd>TAB</kbd> SCORES</span></div>
+<div class="menu-controls"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>MOUSE</kbd> AIM / SHOOT</span><span><kbd>R</kbd> RELOAD</span><span><kbd>Q</kbd> SWAP</span><span><kbd>G</kbd> FRAG</span><span><kbd>5</kbd> KILLSTREAK</span><span><kbd>TAB</kbd> SCORES</span></div>
 <p class="local-note"><a href="index.html" style="color:inherit">← ZOMBIES</a> · <a href="credits.html" style="color:inherit">CREDITS</a> · ALL ART CC0</p></div></section>
 <script src="vendor/peerjs.min.js"></script>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/jsm/","three-mesh-bvh":"./vendor/bvh.js","@recast-navigation/core":"./vendor/recast-core.mjs","@recast-navigation/wasm":"./vendor/recast-wasm.js"}}</script><script type="module" src="mp.js"></script></body></html>

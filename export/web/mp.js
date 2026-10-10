@@ -107,7 +107,7 @@ function spawnPoint(team){
   return best;
 }
 function respawn(s){
-  const p=spawnPoint(s.team);s.alive=true;s.health=s.maxHealth;s.arms=new Arms(s.o,s.o.perks);s.target=null;s.know.clear();s.path=[];s.lastHurt=-9;
+  const p=spawnPoint(s.team);s.safeUntil=time+mp.spawnSafeSeconds;s.frags=mp.frag.count;s.alive=true;s.health=s.maxHealth;s.arms=new Arms(s.o,s.o.perks);s.target=null;s.know.clear();s.path=[];s.lastHurt=-9;
   if(s.human){player.setSpawn(vector(p.position));player.respawn();camera.rotation.set(0,p.yaw,0);view.currentId=null;view.equip(s.arms.def);}
   else{s.pos.fromArray(p.position);s.yaw=p.yaw;s.netPos=null;s.root.visible=true;s.rig.play('idle',true,1,0);s.wp=s.team===0?0:6;s.lane=['north','mid','south'][Math.floor(Math.random()*3)];
     if(s.remote?.open)s.remote.send({t:'spawn',pos:p.position,yaw:p.yaw});}
@@ -124,6 +124,7 @@ function hitTest(ray,far,shooter){
   return best;
 }
 function fireShot(s,dir,from=null){
+  s.safeUntil=0;
   const def=s.arms.def,origin=from??eye(s),pellets=Math.max(1,def.pellets||1);let hitAny=false;
   for(let i=0;i<pellets;i++){
     const d=dir.clone(),spread=(def.spread??.02)*(s.human&&ads?.3:1)*(s.perks.has('steady')?.6:1)*(pellets>1?1.6:1);
@@ -140,7 +141,8 @@ function fireShot(s,dir,from=null){
   return hitAny;
 }
 function damage(o,n,by,weapon,head=false){
-  if(!o.alive||ended)return;o.health-=n;o.lastHurt=time;
+  if(!o.alive||ended||time<o.safeUntil)return;o.health-=n;o.lastHurt=time;
+  if(by&&by!==o){if(o.human)hurtFrom(feet(by));else if(o.remote)evts.push(['hurt',o.id,Math.round(feet(by).x),Math.round(feet(by).z)]);}
   if(netRole==='host'&&by?.remote)evts.push(['hit',by.id,head?1:0]);
   if(by?.human){hitUntil=time+.12;$('hitmarker').style.color=head?'#db5140':'#eee';audio.play('hit',.6);}
   if(o.human){audio.play('hurt');}
@@ -189,6 +191,31 @@ function boomFx(p,radius){
   audio.at(Math.max(.15,1-p.distanceTo(camera.position)/3000),()=>audio.play('explosion'));
 }
 // ---------- effects ----------
+// Damage direction: an arc on the HUD pointing at whoever hit you.
+let arcUntil=0,arcFrom=null;
+function hurtFrom(p){arcFrom=p.clone();arcUntil=performance.now()+1100;}
+function hurtArc(){
+  const el=$('hit-arc'),on=arcFrom&&arcUntil>performance.now()&&human()?.alive;el.style.opacity=on?1:0;if(!on)return;
+  const me=feet(human()),a=Math.atan2(arcFrom.x-me.x,arcFrom.z-me.z)-(camera.rotation.y+Math.PI);el.style.transform=`translate(-50%,-50%) rotate(${-a}rad)`;
+}
+// Frag grenades: thrown on an arc, bounce off the level, burst on a fuse.
+const nades=[];
+function throwFrag(s,origin,dir){
+  if(!s.alive||!(s.frags>0))return false;s.frags--;s.safeUntil=0;
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(4,8,6),new THREE.MeshBasicMaterial({color:0x2c3a24}));mesh.position.copy(origin).addScaledVector(dir,20);scene.add(mesh);
+  nades.push({mesh,v:dir.clone().multiplyScalar(mp.frag.speed).add(new THREE.Vector3(0,mp.frag.lift,0)),at:time+mp.frag.fuse,owner:s});return true;
+}
+function updateFrags(dt){
+  for(const n of [...nades]){
+    n.v.y-=800*dt;const step=n.v.clone().multiplyScalar(dt),len=step.length(),p=n.mesh.position;
+    const hit=len>.001?world.raycast(new THREE.Ray(p.clone(),step.clone().normalize()),0,len+5):null;
+    if(hit){const nrm=hit.normal??hit.face?.normal;if(nrm?.isVector3)n.v.reflect(nrm).multiplyScalar(.4);else n.v.set(0,Math.abs(n.v.y)<60?0:-n.v.y*.3,0);if(n.v.length()<30)n.v.set(0,0,0);}
+    else p.add(step);
+    if(time>=n.at){explode(p.clone(),mp.frag.radius,mp.frag.damage,n.owner,'Frag');n.mesh.removeFromParent();n.mesh.geometry.dispose();n.mesh.material.dispose();nades.splice(nades.indexOf(n),1);}
+  }
+}
+function fragHuman(){const h=human();if(!h?.alive||!(h.frags>0))return;const dir=camera.getWorldDirection(new THREE.Vector3());
+  if(netRole==='client'){h.frags--;net.send({t:'frag',o:camera.position.toArray(),d:dir.toArray()});}else throwFrag(h,camera.position.clone(),dir);}
 let hitUntil=0,toastUntil=0,deathCam=null;
 function puff(p,color,n=3,speed=90){for(let i=0;i<n;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),new THREE.MeshBasicMaterial({color}));m.position.copy(p);scene.add(m);fx.push({mesh:m,life:.35+Math.random()*.2,v:new THREE.Vector3((Math.random()-.5)*speed,Math.random()*speed,(Math.random()-.5)*speed)});}}
 function tracer(a,b){const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]),new THREE.LineBasicMaterial({color:0xffe0a0,transparent:true,opacity:.5}));scene.add(l);fx.push({mesh:l,life:.06});}
@@ -222,6 +249,7 @@ function botThink(s,dt){
     const wantYaw=Math.atan2(-to.x,-to.z)+s.aimErr.x,wantPitch=Math.atan2(to.y,Math.hypot(to.x,to.z))+s.aimErr.y;
     let dy=((wantYaw-s.yaw+Math.PI*3)%(Math.PI*2))-Math.PI;const turn=d.turn*dt;s.yaw+=THREE.MathUtils.clamp(dy,-turn,turn);s.pitch+=THREE.MathUtils.clamp(wantPitch-s.pitch,-turn,turn);
     s.react-=dt;
+    if(s.frags>0&&s.react<=0&&dist>450&&dist<1100&&Math.random()<dt*.05)throwFrag(s,myEye,to.clone().normalize());
     if(s.react<=0&&Math.abs(dy)<.12){
       if(arms.state.mag===0)arms.reload();
       else if(arms.canFire()&&(arms.def.automatic||time-s.lastFire>arms.def.fireTime+.12+Math.random()*.15)){arms.fire();s.lastFire=time;
@@ -287,6 +315,7 @@ function hostData(conn,m){
   if(m.t==='fire'&&s.alive){const w=s.arms.defs.findIndex(d=>d.id===m.w);if(w<0)return;s.arms.slot=w;s.lastFire=time;
     const o=vector(m.o),mine=eye(s);fireShot(s,vector(m.d).normalize(),o.distanceTo(mine)<160?o:mine);}
   if(m.t==='streak'&&s.alive&&s.earned.length)useStreak(s,s.earned.shift());
+  if(m.t==='frag'&&s.alive){const o=vector(m.o),mine=eye(s),d=vector(m.d);if(d.lengthSq()>.5)throwFrag(s,o.distanceTo(mine)<160?o:mine,d.normalize());}
 }
 // Put a joining player in a bot's slot, on the team they asked for when it has room.
 function seat(conn,name,o,want){
@@ -321,7 +350,7 @@ const feedText=t=>String(t).slice(0,300).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt
 function clientData(conn,m){
   if((m.t==='lobby'||m.t==='snap')&&mp.maps[m.map]&&m.map!==mapId){location.search='?join='+room+'&map='+m.map;return;}
   if(m.t==='full'){$('menu-status').textContent='That room is full';return;}
-  if(m.t==='spawn'){const h=human();if(!h)return;h.alive=true;h.health=h.maxHealth;h.arms=new Arms(h.o,h.o.perks);player.setSpawn(vector(m.pos));player.respawn();camera.rotation.set(0,m.yaw,0);view.currentId=null;view.equip(h.arms.def);$('death').hidden=true;return;}
+  if(m.t==='spawn'){const h=human();if(!h)return;h.frags=mp.frag.count;h.alive=true;h.health=h.maxHealth;h.arms=new Arms(h.o,h.o.perks);player.setSpawn(vector(m.pos));player.respawn();camera.rotation.set(0,m.yaw,0);view.currentId=null;view.equip(h.arms.def);$('death').hidden=true;return;}
   if(m.t==='lobby'){if(!started)drawLobby(m);return;}
   if(m.t==='kicked'){$('lobby').hidden=true;$('start').disabled=true;$('menu-status').textContent='The host removed you from the room';return;}
   if(m.t!=='snap')return;
@@ -342,6 +371,7 @@ function clientData(conn,m){
     if(e[0]==='shot'&&e[1]!==myId){const a=vector(e[2]),b=vector(e[3]);tracer(a,b);audio.at(Math.max(0,1-a.distanceTo(camera.position)/2200)*.8,()=>audio.shot(WEAPONS[e[4]]??WEAPONS.halvard));}
     if(e[0]==='hit'&&e[1]===myId){hitUntil=time+.12;$('hitmarker').style.color=e[2]?'#db5140':'#eee';audio.play('hit',.6);}
     if(e[0]==='boom')boomFx(vector(e[1]),e[2]);
+    if(e[0]==='hurt'&&e[1]===myId)hurtFrom(new THREE.Vector3(+e[2]||0,0,+e[3]||0));
   }
   if(m.ended&&!ended)endMatch();
 }
@@ -387,7 +417,7 @@ addEventListener('mousemove',e=>{if(!active||document.pointerLockElement!==rende
 addEventListener('mousedown',e=>{if(!active)return;if(e.button===0){mousePrimary=true;primaryPressed=true;}if(e.button===2)mouseAim=true;});
 addEventListener('mouseup',e=>{if(e.button===0)mousePrimary=false;if(e.button===2)mouseAim=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
-addEventListener('keydown',e=>{if(['Tab','Space'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat||!active)return;if(e.code==='KeyR')reloadHuman();if(e.code==='KeyQ'||e.code==='Digit1'||e.code==='Digit2')swapHuman();if(e.code==='Digit5')streakHuman();if(e.code==='Escape')setActive(false);});
+addEventListener('keydown',e=>{if(['Tab','Space'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat||!active)return;if(e.code==='KeyR')reloadHuman();if(e.code==='KeyQ'||e.code==='Digit1'||e.code==='Digit2')swapHuman();if(e.code==='Digit5')streakHuman();if(e.code==='KeyG')fragHuman();if(e.code==='Escape')setActive(false);});
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('resize',()=>{camera.aspect=viewCamera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();viewCamera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const human=()=>soldiers.find(s=>s.human);
@@ -460,7 +490,7 @@ function update(dt){
       if(!s.alive){if(sim&&!ended&&time>=s.respawnAt){respawn(s);if(s.human)$('death').hidden=true;}if(!s.human)s.rig.update(dt);continue;}
       if(!s.human){if(s.remote||!sim)puppet(s,dt);else botThink(s,dt);s.rig.update(dt);}
     }
-    updateTags(dt,sim);
+    updateTags(dt,sim);if(sim)updateFrags(dt);
     for(const k of [...strikes])if(time>=k.at){strikes.splice(strikes.indexOf(k),1);explode(k.pos,260,170,k.owner,'Airstrike');}
     for(const d of [...drones]){d.life-=dt;d.repath-=dt;const p=d.mesh.position;
       const foe=enemiesOf(d.owner).sort((a,b)=>feet(a).distanceTo(p)-feet(b).distanceTo(p))[0];
@@ -483,10 +513,11 @@ function hud(){
   if(h){$('weapon-name').textContent=h.arms.def.name;$('mag').textContent=h.arms.state.mag;$('reserve').textContent=h.arms.state.reserve;$('reload-label').textContent=h.arms.reloadLeft>0?'RELOADING':h.arms.state.mag===0?'RELOAD':'';
     $('health-fill').style.width=(100*Math.max(0,h.health)/h.maxHealth)+'%';$('hurt').style.opacity=h.alive&&h.health<h.maxHealth?(1-h.health/h.maxHealth)*.8:0;
     $('streaks').innerHTML=`<span>STREAK ${h.streak}</span>`+mp.streaks.map(s=>`<span class="${h.earned.includes(s.id)?'ready':''}">${s.kills-(h.perks.has('hardline')?1:0)} · ${s.name}</span>`).join('')+(h.earned.length?'<b>5 / D-PAD ▼ to call in</b>':'');
-    $('kd').textContent=`${h.kills} kills · ${h.deaths} deaths`;}
+    $('kd').textContent=`${h.kills} kills · ${h.deaths} deaths · G ${h.frags??0} frags`;}
+  hurtArc();
   board(ended);if(frames++%3===0)minimap();
 }
-const debug={getState:()=>({ready,started,ended,time,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
+const debug={throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended,time,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
   step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});

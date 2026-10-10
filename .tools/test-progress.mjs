@@ -20,6 +20,11 @@ try {
   check('a new profile starts at level 1', menu.p.level === 1 && menu.p.xp === 0 && menu.rank.startsWith('LEVEL 1'), menu.rank);
   check('locked weapons are disabled in the class menu', menu.locked === 4 && menu.open.join() === 'halvard', `${menu.locked} locked, open: ${menu.open}`);
   await page.evaluate(() => { game.debug.start(); document.getElementById('menu').hidden = true; });
+  const frag = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human); d.camera.rotation.x = .3; d.throwFrag(); const thrown = d.getState().nades, left = me.frags; d.step(3); d.hurtFrom([0, 0, 0]);
+    return { thrown, left, after: d.getState().nades }; });
+  await page.waitForTimeout(400);
+  check('a frag is thrown and bursts on its fuse', frag.thrown === 1 && frag.left === 1 && frag.after === 0, JSON.stringify(frag));
+  check('the damage arc shows', await page.evaluate(() => document.getElementById('hit-arc').style.opacity === '1' || !game.debug.soldiers.find(s => s.human).alive));
   let p = null;
   for (let i = 0; i < 400; i++) {
     p = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human), foes = d.soldiers.filter(s => s.team !== me.team && s.alive), eye = d.camera.position;

@@ -48,13 +48,17 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   ramps to the north, a warehouse the service road runs through, and two rows of containers to the south. Chosen in
   the menu or with `?map=yard`; a room's join link carries the arena. `npm run test:yard` plays a bots-only match
   to 75 with 0 errors. The warehouse lighting was raised after one dark screenshot and has not been looked at since.
+- **Match feel (2026-10-10):** 2.5 s of spawn protection (ends when you fire or throw), a red HUD arc pointing at
+  whoever hit you, and frag grenades (2 per life on G, 2.2 s fuse; bots throw them, a joiner's throw goes through
+  the host). A grenade in flight is not drawn for other online players, only its explosion. No gamepad or touch
+  binding for the frag yet.
 - **Online hardening (2026-10-10):** a joiner's killfeed keeps only the name colour and italic tags from the host,
   and joining retries for about 15 s so PLAY AGAIN on both sides brings the room back to the lobby.
 - **Known flake:** `test:p2p` failed twice on its first page load when run straight after another suite and passed
   on rerun each time.
 
 ## NOT PUBLISHED (2026-10-10)
-Everything from 2026-10-10 (overhaul, lobby, progression, Recovery mode, Cinder Yard, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
+Everything from 2026-10-10 (overhaul, lobby, progression, Recovery mode, Cinder Yard, match feel, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
 permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
 (gates were clean at the time: 0 failing licences, 0 mark hits).
 
