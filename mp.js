@@ -40,7 +40,8 @@ const saved=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.class')
 const loadout={primary:saved.primary??'halvard',secondary:saved.secondary??'warden',perks:saved.perks??['fleetfoot','steady','hardline'],difficulty:params.get('diff')??saved.difficulty??'regular',size:+(params.get('size')??saved.size??6)};
 // Local progression: XP, levels and unlocks live in this browser only.
 const prof=loadProgress(),matchAwards={xp:0,medals:{},startLevel:levelOf(prof.xp)};let lastKillT=-99,chainN=0,lastKiller=null,opened=false,popUntil=0;
-const legalClass=c=>({primary:legalPick(mp.unlocks,mp.primaries,c?.primary,matchAwards.startLevel),secondary:legalPick(mp.unlocks,mp.secondaries,c?.secondary,matchAwards.startLevel),perks:mp.perks.map((slot,i)=>legalPick(mp.unlocks,slot.map(p=>p.id),c?.perks?.[i],matchAwards.startLevel))});
+const fitIds=Object.keys(mp.fittings);
+const legalClass=c=>({fitting:legalPick(mp.unlocks,fitIds,c?.fitting,matchAwards.startLevel),primary:legalPick(mp.unlocks,mp.primaries,c?.primary,matchAwards.startLevel),secondary:legalPick(mp.unlocks,mp.secondaries,c?.secondary,matchAwards.startLevel),perks:mp.perks.map((slot,i)=>legalPick(mp.unlocks,slot.map(p=>p.id),c?.perks?.[i],matchAwards.startLevel))});
 loadout.slots=Array.from({length:mp.classSlots},(_,i)=>legalClass(Array.isArray(saved.slots)?saved.slots[i]??loadout:loadout));loadout.slot=Math.min(mp.classSlots-1,Math.max(0,saved.slot|0));Object.assign(loadout,loadout.slots[loadout.slot]);
 function award(list){
   if(botsOnly)return;const r=grant(prof,list);matchAwards.xp+=r.xp;for(const a of list)if(MEDALS[a])matchAwards.medals[a]=(matchAwards.medals[a]??0)+1;for(const c of claimChallenges(prof)){matchAwards.xp+=c.xp;toast(`CHALLENGE · ${c.name} ${c.tier} · +${c.xp} XP`,4);}saveProgress(prof);
@@ -48,7 +49,7 @@ function award(list){
   if(r.levelUp){toast('LEVEL '+r.levelUp+' REACHED',4);audio.play('powerup_spawn');}
 }
 function rankLine(){
-  const l=levelOf(prof.xp),next=Object.entries(mp.unlocks).filter(([,v])=>v>l).sort((a,b)=>a[1]-b[1])[0],label=id=>WEAPONS[id]?.name??perkName(id);
+  const l=levelOf(prof.xp),next=Object.entries(mp.unlocks).filter(([,v])=>v>l).sort((a,b)=>a[1]-b[1])[0],label=id=>WEAPONS[id]?.name??mp.fittings[id]?.name??perkName(id);
   return `${prof.tour?`TOUR ${prof.tour+1} · `:''}LEVEL ${l}${l>=MAX_LEVEL?' (MAX)':` · ${prof.xp-xpForLevel(l)} / ${xpForLevel(l+1)-xpForLevel(l)} XP`} · ${prof.kills} kills · ${prof.wins}/${prof.matches} wins${next?` · next unlock: ${label(next[0])} at level ${next[1]}`:''}`;
 }
 // Game mode: team deathmatch scores on kills; recovery scores on collecting the marker a kill drops.
@@ -90,8 +91,10 @@ const perkName=id=>mp.perks.flat().find(p=>p.id===id)?.name??id;
 const eyeH=58,up=new THREE.Vector3(0,1,0);
 
 // ---------- weapons (per soldier) ----------
+// A fitting changes the primary's numbers: multipliers for numeric fields, plain values for the rest.
+const fitted=(def,id)=>{const f=mp.fittings[id]?.mods;if(!f)return def;const d={...def};for(const [k,v] of Object.entries(f))d[k]=typeof v==='number'?(k==='clipSize'?Math.round(def[k]*v):def[k]*v):v;return d;};
 class Arms {
-  constructor(o,perks){this.perks=new Set(perks);this.defs=[WEAPONS[o.primary],WEAPONS[o.secondary]];this.slot=0;this.ammo=this.defs.map(d=>({mag:d.clipSize,reserve:Math.round(d.clipSize*(this.perks.has('deeppockets')?5:3))}));this.fireLeft=0;this.reloadLeft=0;this.burst=0;}
+  constructor(o,perks){this.perks=new Set(perks);this.defs=[fitted(WEAPONS[o.primary],o.fitting),WEAPONS[o.secondary]];this.slot=0;this.ammo=this.defs.map(d=>({mag:d.clipSize,reserve:Math.round(d.clipSize*(this.perks.has('deeppockets')?5:3))}));this.fireLeft=0;this.reloadLeft=0;this.burst=0;}
   get def(){return this.defs[this.slot];}get state(){return this.ammo[this.slot];}
   update(dt){this.fireLeft=Math.max(0,this.fireLeft-dt);if(this.reloadLeft>0){this.reloadLeft-=dt;if(this.reloadLeft<=0){const s=this.state,n=Math.min(this.def.clipSize-s.mag,s.reserve);s.mag+=n;s.reserve-=n;}}}
   canFire(){return this.fireLeft<=0&&this.reloadLeft<=0&&this.state.mag>0;}
@@ -340,7 +343,7 @@ function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,diff:loado
 function hostData(conn,m){
   const s=net.conns.get(conn);
   if(m.t==='hello'){
-    const o={primary:mp.primaries.includes(m.o?.primary)?m.o.primary:'halvard',secondary:mp.secondaries.includes(m.o?.secondary)?m.o.secondary:'warden',perks:(m.o?.perks??[]).filter(id=>mp.perks.flat().some(p=>p.id===id)).slice(0,3)},name=clean(m.name);
+    const o={fitting:mp.fittings[m.o?.fitting]?m.o.fitting:'none',primary:mp.primaries.includes(m.o?.primary)?m.o.primary:'halvard',secondary:mp.secondaries.includes(m.o?.secondary)?m.o.secondary:'warden',perks:(m.o?.perks??[]).filter(id=>mp.perks.flat().some(p=>p.id===id)).slice(0,3)},name=clean(m.name);
     if(started){seat(conn,name,o,undefined,migrated?m.id:undefined);return;}
     if(lobby.some(p=>p.conn===conn))return;
     if(lobby.length>=loadout.size*2-1){conn.send({t:'full'});return;}
@@ -478,7 +481,7 @@ function minimap(){
   for(const s of map.kit.solids)if(s.max[1]>60&&s.max[1]<200&&!s.invisible)g.fillRect(sx(s.min[0]),sz(s.min[2]),Math.max(1,sx(s.max[0])-sx(s.min[0])),Math.max(1,sz(s.max[2])-sz(s.min[2])));
   if(zone&&mode==='holdout'){g.strokeStyle=zone.owner<0?'#fff':mp.teams[zone.owner].color;g.lineWidth=2;g.beginPath();g.arc(sx(zone.pos.x),sz(zone.pos.z),rules().zoneRadius/3000*W,0,7);g.stroke();}
   const me=soldiers.find(s=>s.human),team=humanTeam(),scanning=scanUntil[team]>time;
-  for(const s of soldiers){if(!s.alive)continue;const f=feet(s),friend=s.team===team,recent=time-s.lastFire<.6;
+  for(const s of soldiers){if(!s.alive)continue;const f=feet(s),friend=s.team===team,recent=time-s.lastFire<.6&&!s.arms.def.quiet;
     if(!friend&&!(scanning&&!s.perks.has('ghostline'))&&!recent)continue;g.fillStyle=s.human?'#fff':friend?mp.teams[team].color:'#ff4040';g.beginPath();g.arc(sx(f.x),sz(f.z),s.human?4:3,0,7);g.fill();}
   if(me?.alive){const f=feet(me),yaw=camera.rotation.y;g.strokeStyle='#fff';g.beginPath();g.moveTo(sx(f.x),sz(f.z));g.lineTo(sx(f.x)-Math.sin(yaw)*12,sz(f.z)-Math.cos(yaw)*12);g.stroke();}
   if(scanning){g.strokeStyle='rgba(120,255,160,.6)';g.strokeRect(1,1,W-2,H-2);}
@@ -506,10 +509,10 @@ function streakHuman(){const h=human();if(!h?.alive||!h.earned.length)return;if(
 function buildMenu(){
   const opt=(list,sel,label)=>list.map(id=>`<option value="${id}" ${id===sel?'selected':''}>${label(id)}</option>`).join('');
   const lvl=levelOf(prof.xp),gated=(list,sel,label)=>list.map(id=>{const open=isUnlocked(mp.unlocks,id,lvl);return `<option value="${id}" ${id===sel?'selected':''} ${open?'':'disabled'}>${label(id)}${open?'':' · unlocks at level '+unlockLevel(mp.unlocks,id)}</option>`;}).join('');
-  $('cls-primary').innerHTML=gated(mp.primaries,loadout.primary,id=>WEAPONS[id].name);$('cls-secondary').innerHTML=gated(mp.secondaries,loadout.secondary,id=>WEAPONS[id].name);
+  $('cls-primary').innerHTML=gated(mp.primaries,loadout.primary,id=>WEAPONS[id].name);$('cls-secondary').innerHTML=gated(mp.secondaries,loadout.secondary,id=>WEAPONS[id].name);$('cls-fit').innerHTML=gated(fitIds,loadout.fitting,id=>mp.fittings[id].name+(mp.fittings[id].blurb?' — '+mp.fittings[id].blurb:''));
   mp.perks.forEach((slot,i)=>{$('cls-perk'+i).innerHTML=gated(slot.map(p=>p.id),loadout.perks[i],id=>{const p=slot.find(x=>x.id===id);return p.name+' — '+p.blurb;});});
   $('cls-slot').innerHTML=loadout.slots.map((_,i)=>`<option value="${i}" ${i===loadout.slot?'selected':''}>Class ${i+1}</option>`).join('');
-  $('cls-slot').addEventListener('change',()=>{readMenu();loadout.slot=+$('cls-slot').value;Object.assign(loadout,loadout.slots[loadout.slot]);$('cls-primary').value=loadout.primary;$('cls-secondary').value=loadout.secondary;loadout.perks.forEach((id,i)=>{$('cls-perk'+i).value=id;});readMenu();if(started)$('menu-status').textContent='Class '+(loadout.slot+1)+' applies on your next spawn';});
+  $('cls-slot').addEventListener('change',()=>{readMenu();loadout.slot=+$('cls-slot').value;Object.assign(loadout,loadout.slots[loadout.slot]);$('cls-primary').value=loadout.primary;$('cls-fit').value=loadout.fitting;$('cls-secondary').value=loadout.secondary;loadout.perks.forEach((id,i)=>{$('cls-perk'+i).value=id;});readMenu();if(started)$('menu-status').textContent='Class '+(loadout.slot+1)+' applies on your next spawn';});
   $('rank').textContent=rankLine();$('rank-bar').style.width=(100*levelProgress(prof.xp))+'%';
   $('challenges').textContent='CHALLENGES · '+CHALLENGES.map(c=>prof.done[c.id]<c.tiers.length?`${c.name} ${challengeCount(prof,c.id)}/${c.tiers[prof.done[c.id]]}`:`${c.name} done`).join(' · ');
   $('tour').hidden=!canTour(prof);$('tour').textContent=`START TOUR ${prof.tour+2} · level and unlocks reset, totals and challenges stay`;$('tour').addEventListener('click',()=>{if(!started&&startTour(prof)){saveProgress(prof);location.reload();}});
@@ -522,7 +525,7 @@ function buildMenu(){
   $('streak-list').textContent=mp.streaks.map(s=>`${s.kills} kills: ${s.name}`).join(' · ');
 }
 function readMenu(){
-  loadout.name=$('cls-name').value.trim().slice(0,14);if(!(started&&netRole==='client')){loadout.primary=$('cls-primary').value;loadout.secondary=$('cls-secondary').value;loadout.perks=[0,1,2].map(i=>$('cls-perk'+i).value);loadout.slots[loadout.slot]={primary:loadout.primary,secondary:loadout.secondary,perks:[...loadout.perks]};}
+  loadout.name=$('cls-name').value.trim().slice(0,14);if(!(started&&netRole==='client')){loadout.primary=$('cls-primary').value;loadout.fitting=$('cls-fit').value;loadout.secondary=$('cls-secondary').value;loadout.perks=[0,1,2].map(i=>$('cls-perk'+i).value);loadout.slots[loadout.slot]={fitting:loadout.fitting,primary:loadout.primary,secondary:loadout.secondary,perks:[...loadout.perks]};}
   if(started){try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}return;}loadout.difficulty=$('cls-diff').value;loadout.size=+$('cls-size').value;if(netRole!=='client'&&mp.modes[$('cls-mode').value])mode=$('cls-mode').value;loadout.mode=mode;loadout.map=mapId;matchInfo();
   try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}
 }
