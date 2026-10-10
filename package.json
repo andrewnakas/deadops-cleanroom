@@ -32,7 +32,8 @@
     "check:marks": "python -I tools/check_marks.py export/web worker",
     "test:api": "node .tools/test-api.mjs",
     "test:backend": "node .tools/test-backend.mjs",
-    "test:coop": "node .tools/test-coop.mjs"
+    "test:coop": "node .tools/test-coop.mjs",
+    "test:killcam": "node .tools/test-killcam.mjs"
   },
   "dependencies": {
     "@recast-navigation/core": "0.43.1",

@@ -67,7 +67,7 @@ function updateTags(dt,sim){
   for(const t of [...tags]){t.mesh.rotation.y+=dt*3;t.mesh.position.y=t.pos.y+Math.sin(time*4+t.id)*4;if(!sim||ended)continue;
     if(time>=t.until){removeTag(t);continue;}
     const s=soldiers.find(x=>x.alive&&Math.hypot(feet(x).x-t.pos.x,feet(x).z-t.pos.z)<42&&Math.abs(feet(x).y+26-t.pos.y)<70);if(!s)continue;
-    const scored=s.team!==t.team;if(scored)score[s.team]++;removeTag(t);
+    const scored=s.team!==t.team;if(scored)score[s.team]++;s.score+=scored?50:25;removeTag(t);
     if(s.human){award([scored?'collect':'deny']);audio.play('powerup_spawn',.5);}
     killfeed.unshift({t:time,text:`<b style="color:${mp.teams[s.team].color}">${s.name}</b> <i>${scored?'collected a marker':'denied a marker'}</i>`});killfeed.length=Math.min(killfeed.length,6);
     if(!ended&&score[s.team]>=rules().scoreLimit)endMatch();}
@@ -88,7 +88,7 @@ function updateZone(dt,sim){
     const n=[0,0],r=rules().zoneRadius;for(const s of soldiers)if(s.alive&&Math.hypot(feet(s).x-zone.pos.x,feet(s).z-zone.pos.z)<r&&Math.abs(feet(s).y-zone.pos.y)<90)n[s.team]++;
     zone.owner=n[0]===n[1]?-1:n[0]>n[1]?0:1;
     if(zone.owner>=0){zone.acc+=dt;const h=human();if(h?.alive&&h.team===zone.owner&&feet(h).distanceTo(zone.pos)<r+40){zone.held+=dt;if(zone.held>=5){zone.held-=5;award(['hold']);}}
-      while(zone.acc>=1&&!ended){zone.acc--;score[zone.owner]++;if(score[zone.owner]>=rules().scoreLimit)endMatch();}}
+      while(zone.acc>=1&&!ended){zone.acc--;for(const s of soldiers)if(s.alive&&s.team===zone.owner&&Math.hypot(feet(s).x-zone.pos.x,feet(s).z-zone.pos.z)<r)s.score+=10;score[zone.owner]++;if(score[zone.owner]>=rules().scoreLimit)endMatch();}}
   }
   zone.mat.color.set(zone.owner<0?0xffffff:mp.teams[zone.owner].color);zone.mat.opacity=.22+.08*Math.sin(time*4);
 }
@@ -124,7 +124,7 @@ function makeBody(team){
 }
 function makeSoldier({name,team,human=false,o=loadout,difficulty}){
   const s={id:soldiers.length,name,team,human,o,perks:new Set(o.perks),arms:new Arms(o,o.perks),pos:new THREE.Vector3(),yaw:0,pitch:0,alive:false,respawnAt:0,health:100,maxHealth:o.perks.includes('thickskin')?125:100,
-    kills:0,deaths:0,streak:0,earned:[],lastHurt:-9,diff:mp.difficulty[difficulty??o.difficulty??'regular'],path:[],pathIndex:0,repath:0,target:null,react:0,know:new Map(),lane:['north','mid','south'][Math.floor(Math.random()*3)],dir:team===0?1:-1,wp:0,strafe:1,strafeT:0,aimErr:new THREE.Vector2(),aimT:0,lastFire:-9};
+    kills:0,deaths:0,assists:0,score:0,hitBy:new Map(),streak:0,earned:[],lastHurt:-9,diff:mp.difficulty[difficulty??o.difficulty??'regular'],path:[],pathIndex:0,repath:0,target:null,react:0,know:new Map(),lane:['north','mid','south'][Math.floor(Math.random()*3)],dir:team===0?1:-1,wp:0,strafe:1,strafeT:0,aimErr:new THREE.Vector2(),aimT:0,lastFire:-9};
   if(!human)Object.assign(s,makeBody(team));
   soldiers.push(s);return s;
 }
@@ -171,7 +171,7 @@ function fireShot(s,dir,from=null){
   return hitAny;
 }
 function damage(o,n,by,weapon,head=false){
-  if(!o.alive||ended||time<o.safeUntil)return;o.health-=n;o.lastHurt=time;
+  if(!o.alive||ended||time<o.safeUntil)return;o.health-=n;o.lastHurt=time;if(by&&by!==o&&by.team!==o.team)o.hitBy.set(by.id,time);
   if(by&&by!==o){if(o.human)hurtFrom(feet(by));else if(o.remote)evts.push(['hurt',o.id,Math.round(feet(by).x),Math.round(feet(by).z)]);}
   if(netRole==='host'&&by?.remote)evts.push(['hit',by.id,head?1:0]);
   if(by?.human){hitUntil=time+.12;$('hitmarker').style.color=head?'#db5140':'#eee';audio.play('hit',.6);}
@@ -185,13 +185,16 @@ function kill(o,by,weapon,head){
   if(!o.human){o.rig.play('death',false,1,.1);setTimeout(()=>{if(!o.alive)o.root.visible=false;},2200);}
   else{lastKiller=by&&by!==o?by:null;prof.deaths++;deathCam=by&&by!==o?by:null;$('death').hidden=false;$('death').textContent=(by&&by!==o?'Killed by '+by.name:'You died')+' · respawning…';}
   if(by&&by!==o&&by.team!==o.team){
-    by.kills++;by.streak++;if(mode==='tdm')score[by.team]++;else if(mode==='recovery')dropTag(o);
+    by.kills++;by.streak++;by.score+=100;lastKill={k:by.id,v:o.id,t:time};if(mode==='tdm')score[by.team]++;else if(mode==='recovery')dropTag(o);
+    // Anyone else who hurt the victim in the last six seconds gets an assist.
+    for(const [id,t] of o.hitBy){const a=soldiers[id];if(a&&a!==by&&time-t<6){a.assists++;a.score+=50;}}
     if(by.human){chainN=time-lastKillT<4?chainN+1:1;lastKillT=time;const gun=!mp.streaks.some(st=>st.name===weapon);
       award(killAwards({head,distance:gun?feet(o).distanceTo(feet(by)):0,chain:chainN,payback:o===lastKiller,opening:!opened}));if(o===lastKiller)lastKiller=null;}
     opened=true;if(by.perks.has('scavenger'))by.arms.refill();
     for(const st of mp.streaks)if(by.streak===st.kills-(by.perks.has('hardline')?1:0)){by.earned.push(st.id);if(by.human){toast(st.name+' ready · press 5',4);audio.play('powerup_spawn');}}
     if(!by.human&&!by.remote)while(by.earned.length)useStreak(by,by.earned.shift());
   }else if(by===o)score[o.team===0?1:0]+=0;
+  o.hitBy.clear();
   killfeed.unshift({t:time,text:`<b style="color:${mp.teams[by?.team??o.team].color}">${by?.name??'World'}</b> <i>${weapon}${head?' ✦':''}</i> <b style="color:${mp.teams[o.team].color}">${o.name}</b>`});killfeed.length=Math.min(killfeed.length,6);
   if(!ended&&(score[0]>=rules().scoreLimit||score[1]>=rules().scoreLimit))endMatch();
 }
@@ -344,8 +347,8 @@ function puppet(s,dt){
   s.tag.visible=s.team===humanTeam()||scanUntil[humanTeam()]>time&&!s.perks.has('ghostline');
   if(netRole==='host'&&time-s.lastHurt>5)s.health=Math.min(s.maxHealth,s.health+dt*40);
 }
-function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,diff:loadout.difficulty,zone:zone?[zone.i,zone.owner]:null,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,gid:gameId,rk:rankedGame,hs:human()?.id??-1,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
-  sol:soldiers.map(s=>({id:s.id,name:s.human?(loadout.name||'Host'):s.name,team:s.team,a:s.alive,h:Math.round(s.health),k:s.kills,d:s.deaths,s:s.streak,e:s.earned,r:s.remote?1:0,p:feet(s).toArray().map(v=>Math.round(v*10)/10),y:s.human?camera.rotation.y:s.yaw,w:s.arms.def.id,f:time-s.lastFire<.2?1:0}))};}
+function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,diff:loadout.difficulty,zone:zone?[zone.i,zone.owner]:null,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,fk:lastKill&&time-lastKill.t<5?[lastKill.k,lastKill.v]:null,gid:gameId,rk:rankedGame,hs:human()?.id??-1,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
+  sol:soldiers.map(s=>({id:s.id,name:s.human?(loadout.name||'Host'):s.name,team:s.team,a:s.alive,h:Math.round(s.health),k:s.kills,d:s.deaths,sc:s.score,as:s.assists,s:s.streak,e:s.earned,r:s.remote?1:0,p:feet(s).toArray().map(v=>Math.round(v*10)/10),y:s.human?camera.rotation.y:s.yaw,w:s.arms.def.id,f:time-s.lastFire<.2?1:0}))};}
 function hostData(conn,m){
   if(m.t==='peek'){conn.send({t:'peek',map:mapId,started,free:started?soldiers.filter(x=>!x.human&&!x.remote).length:loadout.size*2-1-lobby.length});return;}
   const s=net.conns.get(conn);
@@ -449,7 +452,7 @@ function clientData(conn,m){
   for(const d of m.sol){
     let s=soldiers[d.id];
     if(!s){s=makeSoldier({name:clean(d.name),team:d.team?1:0,human:d.id===myId,o:d.id===myId?loadout:{primary:mp.primaries.includes(d.w)?d.w:'halvard',secondary:'warden',perks:[]}});started=true;}
-    s.player=!!d.r;const was=s.alive;if(s.human){for(let i=s.kills;i<Math.min(d.k,s.kills+5);i++)award(['kill']);if(was&&!d.a)prof.deaths++;}s.kills=d.k;s.deaths=d.d;s.streak=d.s;
+    s.player=!!d.r;const was=s.alive;if(s.human){for(let i=s.kills;i<Math.min(d.k,s.kills+5);i++)award(['kill']);if(was&&!d.a)prof.deaths++;}s.kills=d.k;s.deaths=d.d;s.score=d.sc|0;s.assists=d.as|0;s.streak=d.s;
     if(s.human){if(d.h<s.health-.5&&d.a)audio.play('hurt');s.health=d.h;s.earned=d.e;if(was&&!d.a){s.alive=false;$('death').hidden=false;$('death').textContent='You died · respawning…';}}
     else{s.name=clean(d.name);s.netPos=(s.netPos??new THREE.Vector3()).fromArray(d.p);s.yaw=d.y;s.health=d.h;if(d.f)s.lastFire=time;
       if(!was&&d.a){s.pos.copy(s.netPos);s.root.visible=true;s.rig.play('idle',true,1,0);}
@@ -464,6 +467,7 @@ function clientData(conn,m){
     if(e[0]==='nade'&&nades.length<24)throwFrag(null,vector(e[1]),vector(e[2]),Math.min(5,Math.max(.1,+e[3]||2)));
     if(e[0]==='hurt'&&e[1]===myId)hurtFrom(new THREE.Vector3(+e[2]||0,0,+e[3]||0));
   }
+  if(Array.isArray(m.fk))lastKill={k:m.fk[0]|0,v:m.fk[1]|0,t:time};
   if(m.ended&&!ended)endMatch();
 }
 // Quick play without a server: public rooms use a short list of fixed codes. Ask each in turn; join the first
@@ -524,17 +528,42 @@ async function reportGame(w){
 }
 function drawId(){const m=api.me;$('online-id').textContent=m?`ONLINE · ${clean(m.division)} · RATING ${+m.rating|0} · FRIEND CODE ${clean(m.friendCode)}`:'';}
 // ---------- match flow ----------
+// Final killcam: every machine keeps the last few seconds of where each soldier stood. When the match ends on a
+// kill it is replayed from the killer's eye, looking at the victim, before the end screen. Any key or click skips it.
+const tape=[];let lastKill=null,killcam=null,tapeT=0;
+function record(){const now=performance.now();if(now-tapeT<100)return;tapeT=now;tape.push({t:now,s:soldiers.map(s=>[...feet(s).toArray(),s.human?camera.rotation.y:s.yaw,s.alive?1:0])});while(tape.length&&now-tape[0].t>6000)tape.shift();}
 function endMatch(){
-  ended=true;const w=score[0]===score[1]?null:score[0]>score[1]?0:1;
+  if(ended)return;ended=true;const k=lastKill&&time-lastKill.t<5?lastKill:null,killer=k&&soldiers[k.k],victim=k&&soldiers[k.v];
+  if(!killer||!victim||tape.length<8||botsOnly){showEnd();return;}
+  const h=human();if(h&&!h.root)Object.assign(h,makeBody(h.team));
+  killcam={frames:tape.slice(),at:Math.max(tape[0].t,tape.at(-1).t-4000),end:tape.at(-1).t+700,killer,victim};setActive(false);document.exitPointerLock?.();$('menu').hidden=true;
+  $('killcam').hidden=false;$('killcam').innerHTML=`FINAL KILL · <b style="color:${mp.teams[killer.team].color}">${clean(killer.name)}</b><span>click or press a key to skip</span>`;
+  const skip=()=>{if(killcam)killcam.at=Infinity;};addEventListener('keydown',skip,{once:true});setTimeout(()=>addEventListener('mousedown',skip,{once:true}),300);
+}
+function runKillcam(dt){
+  const c=killcam,f=c.frames;c.at+=dt*1000;
+  if(c.at>=c.end){killcam=null;$('killcam').hidden=true;for(const s of soldiers)if(s.root)s.root.visible=s.alive&&!s.human;showEnd();return;}
+  let i=f.findIndex(x=>x.t>c.at);if(i<0)i=f.length-1;const a=f[Math.max(0,i-1)],b=f[i],u=b.t>a.t?THREE.MathUtils.clamp((c.at-a.t)/(b.t-a.t),0,1):1,at=id=>{const p=a.s[id]??b.s[id],q=b.s[id]??p;return p?{pos:new THREE.Vector3(p[0]+(q[0]-p[0])*u,p[1]+(q[1]-p[1])*u,p[2]+(q[2]-p[2])*u),yaw:q[3],alive:!!p[4]}:null;};
+  for(const s of soldiers){const p=at(s.id);if(!s.root||!p)continue;const moved=s.root.position.distanceTo(p.pos);s.root.position.copy(p.pos);s.root.rotation.y=p.yaw+Math.PI/2;s.root.visible=s!==c.killer&&(p.alive||s===c.victim);
+    if(s===c.victim&&!p.alive)s.rig.play('death',false,1,.1);else s.rig.play(moved/Math.max(dt,.001)>40?'run':'idle',true,1,.15);s.rig.update(dt);}
+  const eye=at(c.killer.id),aim=at(c.victim.id);if(eye&&aim){camera.position.copy(eye.pos).add(new THREE.Vector3(0,60,0));camera.lookAt(aim.pos.clone().add(new THREE.Vector3(0,42,0)));}
+}
+function showEnd(){
+  const w=score[0]===score[1]?null:score[0]>score[1]?0:1;
   $('end').hidden=false;$('end-title').textContent=w===null?'DRAW':`TEAM ${mp.teams[w].name.toUpperCase()} WINS`;
   $('end-score').textContent=`${score[0]} — ${score[1]}`;if(human())voice(w===null?'mp_draw':w===humanTeam()?'mp_win':'mp_lose');
   $('again').textContent=netRole==='host'?'NEXT ARENA: '+mp.maps[nextMap()].name.toUpperCase():netRole==='client'?'LEAVE ROOM':'PLAY AGAIN';
   if(human()){const list=['finish'];if(w===humanTeam()){list.push('win');prof.wins++;}prof.matches++;award(list);const l=levelOf(prof.xp);
     $('end-xp').textContent=`+${matchAwards.xp} XP · level ${matchAwards.startLevel}${l>matchAwards.startLevel?' → '+l:''}`+Object.entries(matchAwards.medals).map(([id,n])=>` · ${MEDALS[id]} ×${n}`).join('');}board(true);setActive(false);document.exitPointerLock?.();reportGame(w);
+  // After-action report: best player, your line, and the challenge you are closest to.
+  const mvp=[...soldiers].sort((a,b)=>b.score-a.score)[0],me=human(),next=CHALLENGES.filter(c=>prof.done[c.id]<c.tiers.length).map(c=>({c,left:c.tiers[prof.done[c.id]]-challengeCount(prof,c.id)})).sort((a,b)=>a.left-b.left)[0];
+  $('end-report').innerHTML=(mvp?`<p>BEST PLAYER · <b style="color:${mp.teams[mvp.team].color}">${clean(mvp.name)}</b> · ${mvp.score} score · ${mvp.kills} kills</p>`:'')
+    +(me?`<p>YOU · ${me.score} score · ${me.kills} kills · ${me.assists} assists · ${me.deaths} deaths · ${(me.kills/Math.max(1,me.deaths)).toFixed(2)} K/D</p>`:'')
+    +(me&&next?`<p>NEXT CHALLENGE · ${next.c.name} · ${challengeCount(prof,next.c.id)} / ${next.c.tiers[prof.done[next.c.id]]}</p>`:'');
 }
 function board(force){
   const show=force||keys.has('Tab')||pad.state?.pressedBack;$('scoreboard').hidden=!show;if(!show)return;
-  $('scoreboard-body').innerHTML=[0,1].map(t=>`<div class="team" style="--c:${mp.teams[t].color}"><h3>${mp.teams[t].name} <span>${score[t]}</span></h3>`+soldiers.filter(s=>s.team===t).sort((a,b)=>b.kills-a.kills).map(s=>`<p class="${s.human?'you':''}"><span>${s.name}</span><span>${s.kills}</span><span>${s.deaths}</span></p>`).join('')+'</div>').join('');
+  $('scoreboard-body').innerHTML=[0,1].map(t=>`<div class="team" style="--c:${mp.teams[t].color}"><h3>${mp.teams[t].name} <span>${score[t]}</span></h3><p class="head"><span></span><span>SCORE</span><span>K</span><span>A</span><span>D</span></p>`+soldiers.filter(s=>s.team===t).sort((a,b)=>b.score-a.score||b.kills-a.kills).map(s=>`<p class="${s.human?'you':''}"><span>${s.name}</span><span>${s.score}</span><span>${s.kills}</span><span>${s.assists}</span><span>${s.deaths}</span></p>`).join('')+'</div>').join('');
 }
 function minimap(){
   const c=$('minimap'),g=c.getContext('2d'),W=c.width,H=c.height,sx=x=>(x+1500)/3000*W,sz=z=>(z+900)/1800*H;
@@ -605,6 +634,7 @@ function startMatch(){
 // ---------- frame ----------
 function update(dt){
   if(!ready||!started)return;
+  if(killcam){runKillcam(dt);return;}record();
   const gp=pad.read(),t=touch.input.read();if(gp.pressed.start){active?setActive(false):deploy();}
   const sim=netRole!=='client';
   if(active||botsOnly||netRole!=='solo'){
@@ -665,8 +695,8 @@ function hud(){
   hurtArc();if(frames%30===0)announceScore();
   board(ended);if(frames++%3===0)minimap();
 }
-const debug={voices:()=>[...spoken],tagList:()=>tags.map(t=>[t.pos.x,t.pos.y,t.pos.z,t.team]),lobbySay:t=>{$('lobby-say').value=t;lobbySay();},teleport:p=>{player.setSpawn(vector(p));player.respawn();},throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended,time,room,migrated,zone:zone?{i:zone.i,owner:zone.owner,pos:zone.pos.toArray()}:null,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
-  step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,loadout:()=>JSON.parse(JSON.stringify(loadout)),progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),api:()=>({me:api.me,playlist,gameId,ranked:rankedGame,who:[...who.values()],rank:$('end-rank').textContent}),hub:t=>hub?.show(t),finish:()=>{if(netRole==='client'||ended)return;score[0]=rules().scoreLimit;endMatch();},fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
+const debug={voices:()=>[...spoken],tagList:()=>tags.map(t=>[t.pos.x,t.pos.y,t.pos.z,t.team]),lobbySay:t=>{$('lobby-say').value=t;lobbySay();},teleport:p=>{player.setSpawn(vector(p));player.respawn();},throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended:ended&&!killcam,time,room,migrated,zone:zone?{i:zone.i,owner:zone.owner,pos:zone.pos.toArray()}:null,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
+  step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,loadout:()=>JSON.parse(JSON.stringify(loadout)),progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),api:()=>({me:api.me,playlist,gameId,ranked:rankedGame,who:[...who.values()],rank:$('end-rank').textContent}),hub:t=>hub?.show(t),finish:()=>{if(netRole==='client'||ended)return;score[0]=rules().scoreLimit;endMatch();},hit:(a,b,n)=>damage(soldiers[b],n,soldiers[a],'Test'),setScore:(t,n)=>{score[t]=n;},killcam:()=>killcam?{killer:killcam.killer.name,victim:killcam.victim.name,camera:camera.position.toArray()}:null,fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});if(netRole==='host'&&api.me&&!moving)api.call('DELETE','rooms/'+room);});
 // A closed host tab is not always reported by the data channel: treat eight silent seconds as a lost host.
@@ -684,6 +714,6 @@ $('lobby').addEventListener('click',lobbyClick);$('lobby').addEventListener('key
 renderer.info.autoReset=false;
 function renderFrame(now){
   if(document.hidden)return;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;if(frameTime>.75){fps=Math.round((renderer.info.render.frame||0));frameTime=0;}
-  pad.poll();update(dt);renderer.info.reset();renderer.clear();renderer.render(scene,camera);if(started&&human()?.alive){renderer.clearDepth();renderer.render(viewScene,viewCamera);}
+  pad.poll();update(dt);renderer.info.reset();renderer.clear();renderer.render(scene,camera);if(started&&!killcam&&human()?.alive){renderer.clearDepth();renderer.render(viewScene,viewCamera);}
 }
 renderer.setAnimationLoop(renderFrame);

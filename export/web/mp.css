@@ -6,7 +6,9 @@
 #streaks{position:fixed;left:24px;bottom:28px;z-index:3;display:flex;gap:12px;font-size:10px;letter-spacing:1.5px;color:#9a917e}#streaks .ready{color:#7dff9a;text-shadow:0 0 6px #3f8}#streaks b{color:#fff}
 #scoreboard,#end{position:fixed;inset:12% 18%;z-index:8;background:#0b0e14e8;border:1px solid #ffffff22;padding:24px;overflow:auto}
 #scoreboard-body{display:flex;gap:30px}.team{flex:1}.team h3{color:var(--c);display:flex;justify-content:space-between;border-bottom:1px solid var(--c);padding-bottom:6px}
-.team p{display:grid;grid-template-columns:1fr 50px 50px;margin:4px 0;font-size:13px}.team p.you{color:#fff;font-weight:bold}
+.team p{display:grid;grid-template-columns:1fr 54px 34px 34px 34px;margin:4px 0;font-size:13px}.team p.head{font-size:9px;letter-spacing:2px;color:#9a917e}
+#killcam{position:fixed;top:12%;left:50%;transform:translateX(-50%);z-index:9;font:26px Impact,sans-serif;letter-spacing:3px;color:#eee;text-shadow:0 2px 8px #000;text-align:center}#killcam span{display:block;font:10px Arial;letter-spacing:2px;color:#aeb0a1;margin-top:6px}
+#end-report{margin:10px 0 14px;font-size:12px;letter-spacing:1px;color:#cfc8b8}#end-report p{margin:3px 0}.team p.you{color:#fff;font-weight:bold}
 #end{inset:auto;top:10%;left:50%;transform:translateX(-50%);text-align:center;min-width:420px}#end h2{font:42px Impact,sans-serif;margin:0}#end-score{font:28px Georgia,serif}
 #end button,#again{border:1px solid #b03f31;background:#932e25;color:#eee;padding:12px 24px;letter-spacing:2px}
 #death{position:fixed;top:40%;left:50%;transform:translateX(-50%);z-index:5;font:22px Georgia,serif;color:#e0c0a0;text-shadow:0 2px 6px #000}
