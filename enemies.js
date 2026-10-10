@@ -18,7 +18,7 @@ export class Enemies {
     const type=kind==='dog'?this.hound:kind==='nova'?this.types[0]:this.types[id%this.types.length];
     const model=instance(type.asset,kind==='dog'?34:kind==='nova'?70:66+(id%5)*2.5,'y');
     model.rotation.y=Math.PI/2;
-    model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;const tint=kind==='nova'?0x8fd06a:type.tint;o.material=[o.material].flat().map(m=>{const c=m.clone();c.color.multiply(new THREE.Color(tint));if(kind==='dog'){c.emissive=new THREE.Color(0x401008);}return c;});if(o.material.length===1)o.material=o.material[0];}});
+    model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;const tint=kind==='nova'?0x8fd06a:type.tint;o.material=[o.material].flat().map(m=>{const c=m.clone();c.color.multiply(new THREE.Color(tint));if(kind==='dog'){c.emissive=new THREE.Color(0x401008);}return c;});if(o.material.length===1)o.material=o.material[0];}});
     root.add(model);root.position.copy(position??barrier.outside);this.scene.add(root);
     const rig=new ClipRig(model,type.asset.clips),round=this.session.round;
     const speed=kind==='dog'?230:kind==='nova'?Math.min(120,40+round*5):Math.min(210,34+round*8+(id%4)*5);
@@ -62,7 +62,7 @@ export class Enemies {
       const dist=z.root.position.distanceTo(player),at=z.root.position.clone().add(new THREE.Vector3(0,z.kind==='dog'?25:45,0)),eye=player.clone().add(new THREE.Vector3(0,40,0));
       if(z.state==='attack'){
         z.attackLeft-=dt;
-        if(!z.attackDealt&&z.attackLeft<.62){z.attackDealt=true;if(!lure&&dist<76&&this.world.lineClear(at,eye))this.onDamage(z.kind==='dog'?40:z.kind==='nova'?45:50);}
+        if(!z.attackDealt&&z.attackLeft<.62){z.attackDealt=true;if(!lure&&dist<76&&this.world.lineClear(at,eye))this.onDamage(z.kind==='dog'?40:z.kind==='nova'?45:50,at,z);}
         if(z.attackLeft<=0){z.state='chase';z.rig.play('walk',true,z.pace);}continue;
       }
       if(!lure&&dist<62&&Math.abs(z.root.position.y-player.y)<50&&s.phase!=='reviving'&&this.world.lineClear(at,eye)){

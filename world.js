@@ -105,7 +105,8 @@ export class World {
         if(depth>0)return {normal:distance>.001?normal.divideScalar(distance):new THREE.Vector3(1,0,0),depth};
       }
       return false;
-    },rayIntersect:(r,n=0,f=Infinity)=>this.raycast(r,n,f,true)};
+    },staticIntersect:c=>{const hit=this.collision.capsuleIntersect(c);if(hit)return hit;for(const d of this.dynamic)if(d.enabled&&d.collider){const h=d.collider.capsuleIntersect(c);if(h)return h;}return false;},
+      rayIntersect:(r,n=0,f=Infinity)=>this.raycast(r,n,f,true)};
   }
   update(dt,session){
     for(const a of this.animated)a.userData.update?.(dt,session.power);

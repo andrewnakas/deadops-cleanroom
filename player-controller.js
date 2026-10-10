@@ -240,6 +240,20 @@ export class PlayerController {
     this._ladderExitTimer = 0;
     this._ladderStall = 0;
 
+    // Slide (crouch while sprinting) and mantle (climb onto waist-high cover).
+    this.slideEnabled = options.slide !== false;
+    this.slideBoost = Math.max(1, numberOr(options.slideBoost, 1.22));
+    this.slideFriction = Math.max(0, numberOr(options.slideFriction, 250));
+    this.slideTime = Math.max(0, numberOr(options.slideTime, 0.85));
+    this.mantleHeight = Math.max(0, numberOr(options.mantleHeight, 58));
+    this.sliding = false;
+    this._slideTimer = 0;
+    this._prevCrouch = false;
+    this._mantle = null;
+    this._mantleCooldown = 0;
+    // 'slide', 'mantle', 'jump' and ['land', speed] since the last drain().
+    this.events = [];
+
     if (collisionSource && !sourceIsOctree) {
       this.buildCollision(collisionSource);
     }
@@ -316,6 +330,8 @@ export class PlayerController {
     this._lastCollision = null;
     this._releaseLadder();
     this._ladderExitTimer = 0;
+    this.sliding = false;
+    this._mantle = null;
 
     if (resolve && this.worldReady) this._resolveOverlaps();
     this._syncCamera();
@@ -408,6 +424,17 @@ export class PlayerController {
     return this.state;
   }
 
+  /** Movement events since the last call (for sound and camera feel). */
+  drain() {
+    const events = this.events;
+    this.events = [];
+    return events;
+  }
+
+  get horizontalSpeed() {
+    return Math.hypot(this.velocity.x, this.velocity.z);
+  }
+
   get state() {
     return {
       position: this.camera.position,
@@ -415,6 +442,8 @@ export class PlayerController {
       velocity: this.velocity,
       grounded: this.onFloor,
       crouched: this.crouched,
+      sliding: this.sliding,
+      mantling: Boolean(this._mantle),
       onLadder: this.onLadder,
       worldReady: this.worldReady,
     };
@@ -470,6 +499,11 @@ export class PlayerController {
     else this._coyoteTimer = Math.max(0, this._coyoteTimer - dt);
     this._jumpBufferTimer = Math.max(0, this._jumpBufferTimer - dt);
 
+    if (this._mantle) {
+      this._stepMantle(dt);
+      return;
+    }
+    this._updateSlideState(dt);
     this._updateCrouchState();
     this._updateLadderState(dt);
 
@@ -486,6 +520,15 @@ export class PlayerController {
       this.grounded = false;
       this._jumpBufferTimer = 0;
       this._coyoteTimer = 0;
+      this.sliding = false;
+      this.events.push('jump');
+    }
+
+    this._mantleCooldown = Math.max(0, this._mantleCooldown - dt);
+    if (!this.onLadder && this.mantleHeight > 0 && this._mantleCooldown <= 0 && this.input.forward > 0.3
+      && (this.input.jump || !this.onFloor) && !this.crouched) {
+      this._mantleCooldown = 0.08;
+      if (this._tryMantle()) return;
     }
 
     if (this.onLadder) {
@@ -539,6 +582,7 @@ export class PlayerController {
       this.onFloor = groundedDuringMove;
       this.grounded = groundedDuringMove;
       if (groundedDuringMove && this.velocity.y < 0) this.velocity.y = 0;
+      if (groundedDuringMove && !wasOnFloor && climbSpeedY < -120) this.events.push(['land', -climbSpeedY]);
     }
 
     if (this.fallResetY !== null && this.collider.start.y - this.radius < this.fallResetY) {
@@ -569,7 +613,96 @@ export class PlayerController {
     return false;
   }
 
+  // Crouching at a sprint turns into a slide: a burst of speed that bleeds off.
+  _updateSlideState(dt) {
+    const speed = Math.hypot(this.velocity.x, this.velocity.z);
+    const pressed = this.input.crouch && !this._prevCrouch;
+    this._prevCrouch = this.input.crouch;
+    if (!this.sliding && this.slideEnabled && pressed && this.onFloor && !this.onLadder && speed > this.moveSpeed * 1.2) {
+      this.sliding = true;
+      this._slideTimer = 0;
+      const scale = Math.max(speed, this.sprintSpeed) * this.slideBoost / speed;
+      this.velocity.x *= scale;
+      this.velocity.z *= scale;
+      this.events.push('slide');
+    }
+    if (this.sliding) {
+      this._slideTimer += dt;
+      if (this._slideTimer > this.slideTime || speed < this.crouchSpeed * 1.15 || this.onLadder
+        || (!this.onFloor && this._slideTimer > 0.2)) this.sliding = false;
+    }
+  }
+
+  // Look for a ledge between step height and mantle height directly ahead,
+  // with room to stand on it, and start a short climb onto it.
+  _tryMantle() {
+    if (!this.worldReady) return false;
+    const world = this.worldOctree;
+    const test = typeof world.staticIntersect === 'function' ? world.staticIntersect : world.capsuleIntersect;
+    const blocked = (dx, dy, dz) => {
+      _candidateStart.copy(this.collider.start).add(_translation.set(dx, dy, dz));
+      _candidateEnd.copy(this.collider.end).add(_translation);
+      const hit = test.call(world, new Capsule(_candidateStart, _candidateEnd, this.radius));
+      return Boolean(hit && hit.depth > this.skin);
+    };
+    _forward.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    _forward.y = 0;
+    if (_forward.lengthSq() < 1e-8) return false;
+    _forward.normalize();
+    const reach = this.radius + 12;
+    const fx = _forward.x * reach;
+    const fz = _forward.z * reach;
+    if (!blocked(fx, this.stepHeight + 2, fz)) return false;
+    for (let rise = this.stepHeight + 6; rise <= this.mantleHeight + 4; rise += 6) {
+      if (blocked(0, rise, 0)) return false;
+      if (blocked(fx, rise, fz)) continue;
+      this._mantle = {
+        from: this.collider.start.clone(),
+        to: this.collider.start.clone().add(new THREE.Vector3(fx * 1.25, rise + 1, fz * 1.25)),
+        time: 0,
+        duration: 0.24 + rise / 260,
+      };
+      this.velocity.set(0, 0, 0);
+      this.sliding = false;
+      this._jumpBufferTimer = 0;
+      this.events.push('mantle');
+      return true;
+    }
+    return false;
+  }
+
+  _stepMantle(dt) {
+    const m = this._mantle;
+    m.time += dt;
+    const k = Math.min(1, m.time / m.duration);
+    const lift = Math.min(1, k * 1.5);
+    const push = Math.max(0, (k - 0.35) / 0.65);
+    const length = this.collider.end.y - this.collider.start.y;
+    this.collider.start.set(
+      m.from.x + (m.to.x - m.from.x) * push,
+      m.from.y + (m.to.y - m.from.y) * lift * (2 - lift),
+      m.from.z + (m.to.z - m.from.z) * push,
+    );
+    this.collider.end.set(this.collider.start.x, this.collider.start.y + length, this.collider.start.z);
+    this.velocity.set(0, 0, 0);
+    this.onFloor = false;
+    this.grounded = false;
+    if (k >= 1) {
+      this._mantle = null;
+      this._mantleCooldown = 0.25;
+      this._resolveOverlaps();
+    }
+  }
+
   _updateHorizontalVelocity(dt) {
+    if (this.sliding) {
+      const speed = Math.hypot(this.velocity.x, this.velocity.z);
+      const next = Math.max(0, speed - this.slideFriction * dt);
+      const scale = speed > 1e-4 ? next / speed : 0;
+      this.velocity.x *= scale;
+      this.velocity.z *= scale;
+      return;
+    }
     this._wishDirection(_wish);
 
     const speed = this.crouched
@@ -584,7 +717,7 @@ export class PlayerController {
   }
 
   _updateCrouchState() {
-    const wantCrouch = this.input.crouch;
+    const wantCrouch = this.input.crouch || this.sliding;
     if (wantCrouch && !this.crouched) {
       this._setCapsuleHeight(this.crouchHeight);
       this.crouched = true;
