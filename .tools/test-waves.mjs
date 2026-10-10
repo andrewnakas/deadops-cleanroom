@@ -12,7 +12,7 @@ const exe = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Progra
 const browser = await chromium.launch({ executablePath: exe, headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=d3d11'] });
 const errors = [], log = [];
 try {
-  await new Promise(r => setTimeout(r, 800));
+  for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${port}/`); break; } catch { await new Promise(r => setTimeout(r, 200)); } }
   const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
   page.on('pageerror', e => errors.push(String(e))); page.on('console', m => { if (m.type() === 'error' && !m.text().includes('404')) errors.push(m.text()); });
   await page.goto(`http://127.0.0.1:${port}/index.html`);

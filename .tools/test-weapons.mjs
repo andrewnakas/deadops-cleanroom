@@ -13,7 +13,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } }), 
 fs.mkdirSync('artifacts/weapons', { recursive: true });
 page.on('pageerror', e => errors.push(String(e))); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 try {
-  await new Promise(r => setTimeout(r, 800));
+  for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${port}/`); break; } catch { await new Promise(r => setTimeout(r, 200)); } }
   await page.goto(`http://127.0.0.1:${port}/`); await page.waitForFunction(() => game?.debug.getState().ready, null, { timeout: 120000 });
   const ents = await page.evaluate(() => game.debug.getEntities());
   const power = ents.find(e => e.type === 'power'), ref = ents.find(e => e.type === 'refinery');

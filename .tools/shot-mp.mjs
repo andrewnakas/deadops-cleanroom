@@ -1,4 +1,4 @@
-// Multiplayer screenshots: node .tools/shot-mp.mjs <outdir> <arena> '[{"name":"a","pos":[x,y,z],"look":[x,y,z]}]'
+// Multiplayer screenshots: node .tools/shot-mp.mjs <outdir> <arena> '[{"name":"a","pos":[x,y,z],"look":[x,y,z]}]' [&extra=query]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,9 +9,9 @@ const server = spawn(process.execPath, [path.resolve(import.meta.dirname, 'serve
 const exe = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync);
 const browser = await chromium.launch({ executablePath: exe, headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=d3d11'] });
 try {
-  await new Promise(r => setTimeout(r, 800));
+  for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${port}/`); break; } catch { await new Promise(r => setTimeout(r, 200)); } }
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  await page.goto(`http://127.0.0.1:${port}/mp.html?size=1&diff=recruit&map=${arena}`);
+  await page.goto(`http://127.0.0.1:${port}/mp.html?size=1&diff=recruit&map=${arena}${process.argv[5] ?? ""}`);
   await page.waitForFunction(() => globalThis.game?.debug.getState().ready, null, { timeout: 120000 });
   await page.evaluate(() => { game.debug.start(); document.getElementById('menu').hidden = true; document.body.classList.remove('menu-open'); });
   for (const s of script) {

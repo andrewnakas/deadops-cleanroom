@@ -64,6 +64,26 @@ function updateTags(dt,sim){
     killfeed.unshift({t:time,text:`<b style="color:${mp.teams[s.team].color}">${s.name}</b> <i>${scored?'collected a marker':'denied a marker'}</i>`});killfeed.length=Math.min(killfeed.length,6);
     if(!ended&&score[s.team]>=rules().scoreLimit)endMatch();}
 }
+// Holdout: one marked zone at a time; the team with more soldiers inside scores a point a second.
+let zone=null;
+function zoneSpots(){return ['mid','north','south'].map(l=>world.waypoints.filter(w=>w.lane===l).map(w=>vector(w.position)).sort((a,b)=>Math.abs(a.x)-Math.abs(b.x))[0]).filter(Boolean);}
+function setZone(i){
+  const spots=zoneSpots();if(!spots.length)return;const r=rules().zoneRadius;
+  if(!zone){const m=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide});
+    m.add(new THREE.Mesh(new THREE.CylinderGeometry(r,r,26,40,1,true),mat),new THREE.Mesh(new THREE.CylinderGeometry(5,5,700,8),mat));m.children[1].position.y=350;scene.add(m);zone={mesh:m,mat,acc:0,held:0,owner:-1,spots};}
+  zone.i=((i%spots.length)+spots.length)%spots.length;zone.pos=spots[zone.i];zone.until=time+rules().zoneSeconds;zone.mesh.position.copy(zone.pos).setY(zone.pos.y+13);
+}
+function updateZone(dt,sim){
+  if(mode!=='holdout'||!started)return;if(!zone)setZone(0);if(!zone)return;
+  if(sim&&!ended){
+    if(time>=zone.until){setZone(zone.i+1);zone.owner=-1;toast('The zone has moved',3);}
+    const n=[0,0],r=rules().zoneRadius;for(const s of soldiers)if(s.alive&&Math.hypot(feet(s).x-zone.pos.x,feet(s).z-zone.pos.z)<r&&Math.abs(feet(s).y-zone.pos.y)<90)n[s.team]++;
+    zone.owner=n[0]===n[1]?-1:n[0]>n[1]?0:1;
+    if(zone.owner>=0){zone.acc+=dt;const h=human();if(h?.alive&&h.team===zone.owner&&feet(h).distanceTo(zone.pos)<r+40){zone.held+=dt;if(zone.held>=5){zone.held-=5;award(['hold']);}}
+      while(zone.acc>=1&&!ended){zone.acc--;score[zone.owner]++;if(score[zone.owner]>=rules().scoreLimit)endMatch();}}
+  }
+  zone.mat.color.set(zone.owner<0?0xffffff:mp.teams[zone.owner].color);zone.mat.opacity=.22+.08*Math.sin(time*4);
+}
 const nearestTag=(p,far)=>{let best=null,bd=far;for(const t of tags){const d=t.pos.distanceTo(p);if(d<bd){bd=d;best=t;}}return best;};
 const perkName=id=>mp.perks.flat().find(p=>p.id===id)?.name??id;
 const eyeH=58,up=new THREE.Vector3(0,1,0);
@@ -155,7 +175,7 @@ function kill(o,by,weapon,head){
   if(!o.human){o.rig.play('death',false,1,.1);setTimeout(()=>{if(!o.alive)o.root.visible=false;},2200);}
   else{lastKiller=by&&by!==o?by:null;prof.deaths++;deathCam=by&&by!==o?by:null;$('death').hidden=false;$('death').textContent=(by&&by!==o?'Killed by '+by.name:'You died')+' · respawning…';}
   if(by&&by!==o&&by.team!==o.team){
-    by.kills++;by.streak++;if(mode==='tdm')score[by.team]++;else dropTag(o);
+    by.kills++;by.streak++;if(mode==='tdm')score[by.team]++;else if(mode==='recovery')dropTag(o);
     if(by.human){chainN=time-lastKillT<4?chainN+1:1;lastKillT=time;const gun=!mp.streaks.some(st=>st.name===weapon);
       award(killAwards({head,distance:gun?feet(o).distanceTo(feet(by)):0,chain:chainN,payback:o===lastKiller,opening:!opened}));if(o===lastKiller)lastKiller=null;}
     opened=true;if(by.perks.has('scavenger'))by.arms.refill();
@@ -266,7 +286,11 @@ function botThink(s,dt){
     s.fighting=false;if(arms.state.mag<arms.def.clipSize*.4)arms.reload();
     let known=null;for(const [id,k] of s.know){if(time-k.t>7){s.know.delete(id);continue;}if(!known||k.t>known.t)known=k;}
     const marker=tags.length?nearestTag(me,900):null;
-    if(marker){if(s.repath<=0||s.pathIndex>=s.path.length){s.path=world.path(me,marker.pos.clone().setY(marker.pos.y-26));s.pathIndex=1;s.repath=.8;}}
+    if(zone&&mode==='holdout'){const zd=Math.hypot(me.x-zone.pos.x,me.z-zone.pos.z),far=zd>rules().zoneRadius*.6;
+      if(zone.owner===1-s.team&&s.frags>0&&zd>350&&zd<800&&Math.random()<dt*.25)throwFrag(s,eye(s),zone.pos.clone().sub(eye(s)).setY(0).normalize());
+      if(far&&(s.repath<=0||s.pathIndex>=s.path.length)){const a=Math.random()*6.28,q=rules().zoneRadius*.45*Math.random();s.path=world.path(me,zone.pos.clone().add(new THREE.Vector3(Math.cos(a)*q,0,Math.sin(a)*q)));if(!s.path?.length)s.path=world.path(me,zone.pos);s.pathIndex=1;s.repath=1.5;}
+      else if(!far&&s.pathIndex>=s.path.length){s.yaw+=dt*.6;}}
+    else if(marker){if(s.repath<=0||s.pathIndex>=s.path.length){s.path=world.path(me,marker.pos.clone().setY(marker.pos.y-26));s.pathIndex=1;s.repath=.8;}}
     else if(known&&(s.repath<=0||!s.path.length)){s.path=world.path(me,known.pos);s.pathIndex=1;s.repath=1;}
     else if(!known&&(s.repath<=0||s.pathIndex>=s.path.length)){
       const lane=world.waypoints.filter(w=>w.lane===s.lane).sort((a,b)=>a.index-b.index);let wp=lane[s.wp];
@@ -297,7 +321,7 @@ function puppet(s,dt){
   s.tag.visible=s.team===humanTeam()||scanUntil[humanTeam()]>time&&!s.perks.has('ghostline');
   if(netRole==='host'&&time-s.lastHurt>5)s.health=Math.min(s.maxHealth,s.health+dt*40);
 }
-function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
+function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,zone:zone?[zone.i,zone.owner]:null,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
   sol:soldiers.map(s=>({id:s.id,name:s.human?(loadout.name||'Host'):s.name,team:s.team,a:s.alive,h:Math.round(s.health),k:s.kills,d:s.deaths,s:s.streak,e:s.earned,p:feet(s).toArray().map(v=>Math.round(v*10)/10),y:s.human?camera.rotation.y:s.yaw,w:s.arms.def.id,f:time-s.lastFire<.2?1:0}))};}
 function hostData(conn,m){
   const s=net.conns.get(conn);
@@ -368,6 +392,7 @@ function clientData(conn,m){
   if(m.t==='kicked'){net.onLost=null;$('lobby').hidden=true;$('start').disabled=true;$('menu-status').textContent='The host removed you from the room';return;}
   if(m.t!=='snap')return;
   closeLobby();myId=m.you;if(mp.modes[m.mode]&&m.mode!==mode){mode=m.mode;matchInfo();}
+  if(Array.isArray(m.zone)&&mode==='holdout'&&started){if(!zone||zone.i!==(m.zone[0]|0))setZone(m.zone[0]|0);if(zone)zone.owner=m.zone[1]===0||m.zone[1]===1?m.zone[1]:-1;}
   if(Array.isArray(m.tags)){const live=new Set(m.tags.map(a=>a[0]));for(const t of [...tags])if(!live.has(t.id))removeTag(t);
     for(const a of m.tags.slice(0,40))if(!tags.some(t=>t.id===a[0])){const team=a[1]?1:0,t={id:a[0],team,pos:new THREE.Vector3(+a[2]||0,+a[3]||0,+a[4]||0),until:Infinity,mesh:tagMesh(team)};t.mesh.position.copy(t.pos);tags.push(t);}}time=m.time;score[0]=m.score[0];score[1]=m.score[1];scanUntil[0]=m.scan[0];scanUntil[1]=m.scan[1];
   for(const d of m.sol){
@@ -414,6 +439,7 @@ function minimap(){
   const c=$('minimap'),g=c.getContext('2d'),W=c.width,H=c.height,sx=x=>(x+1500)/3000*W,sz=z=>(z+900)/1800*H;
   g.fillStyle='rgba(10,14,20,.7)';g.fillRect(0,0,W,H);g.fillStyle='rgba(200,200,180,.18)';
   for(const s of map.kit.solids)if(s.max[1]>60&&s.max[1]<200&&!s.invisible)g.fillRect(sx(s.min[0]),sz(s.min[2]),Math.max(1,sx(s.max[0])-sx(s.min[0])),Math.max(1,sz(s.max[2])-sz(s.min[2])));
+  if(zone&&mode==='holdout'){g.strokeStyle=zone.owner<0?'#fff':mp.teams[zone.owner].color;g.lineWidth=2;g.beginPath();g.arc(sx(zone.pos.x),sz(zone.pos.z),rules().zoneRadius/3000*W,0,7);g.stroke();}
   const me=soldiers.find(s=>s.human),team=humanTeam(),scanning=scanUntil[team]>time;
   for(const s of soldiers){if(!s.alive)continue;const f=feet(s),friend=s.team===team,recent=time-s.lastFire<.6;
     if(!friend&&!(scanning&&!s.perks.has('ghostline'))&&!recent)continue;g.fillStyle=s.human?'#fff':friend?mp.teams[team].color:'#ff4040';g.beginPath();g.arc(sx(f.x),sz(f.z),s.human?4:3,0,7);g.fill();}
@@ -508,7 +534,7 @@ function update(dt){
       if(!s.alive){if(sim&&!ended&&time>=s.respawnAt){respawn(s);if(s.human)$('death').hidden=true;}if(!s.human)s.rig.update(dt);continue;}
       if(!s.human){if(s.remote||!sim)puppet(s,dt);else botThink(s,dt);s.rig.update(dt);}
     }
-    updateTags(dt,sim);updateFrags(dt);
+    updateTags(dt,sim);updateZone(dt,sim);updateFrags(dt);
     for(const k of [...strikes])if(time>=k.at){strikes.splice(strikes.indexOf(k),1);explode(k.pos,260,170,k.owner,'Airstrike');}
     for(const d of [...drones]){d.life-=dt;d.repath-=dt;const p=d.mesh.position;
       const foe=enemiesOf(d.owner).sort((a,b)=>feet(a).distanceTo(p)-feet(b).distanceTo(p))[0];
@@ -535,7 +561,7 @@ function hud(){
   hurtArc();
   board(ended);if(frames++%3===0)minimap();
 }
-const debug={lobbySay:t=>{$('lobby-say').value=t;lobbySay();},teleport:p=>{player.setSpawn(vector(p));player.respawn();},throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended,time,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
+const debug={lobbySay:t=>{$('lobby-say').value=t;lobbySay();},teleport:p=>{player.setSpawn(vector(p));player.respawn();},throwFrag:()=>fragHuman(),hurtFrom:p=>hurtFrom(vector(p)),getState:()=>({ready,started,ended,time,zone:zone?{i:zone.i,owner:zone.owner,pos:zone.pos.toArray()}:null,nades:nades.length,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
   step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,loadout:()=>JSON.parse(JSON.stringify(loadout)),progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});

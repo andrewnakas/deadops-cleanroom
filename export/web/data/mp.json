@@ -5,7 +5,8 @@
   },
   "modes": {
     "tdm": {"name": "Team Deathmatch", "scoreLimit": 75, "blurb": "every kill scores"},
-    "recovery": {"name": "Recovery", "scoreLimit": 50, "markerSeconds": 30, "blurb": "kills drop a marker; collect it to score, or grab your team's to deny"}
+    "recovery": {"name": "Recovery", "scoreLimit": 50, "markerSeconds": 30, "blurb": "kills drop a marker; collect it to score, or grab your team's to deny"},
+    "holdout": {"name": "Holdout", "scoreLimit": 150, "zoneSeconds": 30, "zoneRadius": 220, "blurb": "hold the marked zone to score; it moves every 30 seconds"}
   },
   "timeLimit": 600,
   "respawnDelay": 3,

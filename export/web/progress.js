@@ -1,5 +1,5 @@
 // Local progression for multiplayer: XP, levels, medals and unlocks. Stored in this browser only.
-export const XP = { kill: 100, head: 25, pair: 50, trio: 100, payback: 50, reach: 50, opening: 50, win: 400, finish: 150, collect: 50, deny: 25 };
+export const XP = { kill: 100, head: 25, pair: 50, trio: 100, payback: 50, reach: 50, opening: 50, win: 400, finish: 150, collect: 50, deny: 25, hold: 50 };
 export const MEDALS = { head: 'Sharp Eye', pair: 'Pair', trio: 'Trio', payback: 'Payback', reach: 'Long Reach', opening: 'Opening Shot' };
 export const MAX_LEVEL = 30;
 const KEY = 'graveshift.progress';

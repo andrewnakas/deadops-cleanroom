@@ -11,7 +11,7 @@ const exe = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Progra
 const browser = await chromium.launch({ executablePath: exe, headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
 const errors = []; const check = (name, ok, extra = '') => { console.log(ok ? 'PASS' : 'FAIL', name, extra); assert.ok(ok, name); };
 try {
-  await new Promise(r => setTimeout(r, 800));
+  for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${port}/`); break; } catch { await new Promise(r => setTimeout(r, 200)); } }
   const mk = async url => { const p = await (await browser.newContext({ viewport: { width: 960, height: 720 } })).newPage(); p.on('pageerror', e => errors.push(String(e))); p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); }); await p.goto(url); return p; };
   const lobby = p => p.evaluate(() => game.debug.lobby());
   const host = await mk(`http://127.0.0.1:${port}/mp.html?host=${room}&size=3&diff=recruit`);

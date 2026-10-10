@@ -16,6 +16,8 @@
     "test:waves": "node .tools/test-waves.mjs 10",
     "test:tdm": "node .tools/test-tdm.mjs",
     "test:recovery": "node .tools/test-tdm.mjs 6 regular recovery",
+    "test:holdout": "node .tools/test-tdm.mjs 6 regular holdout",
+    "test:holdout-yard": "node .tools/test-tdm.mjs 6 regular holdout yard",
     "test:yard": "node .tools/test-tdm.mjs 6 regular tdm yard",
     "bake:yard": "node .tools/bake-map.mjs yard",
     "test:p2p": "node .tools/test-p2p.mjs",
