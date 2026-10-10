@@ -9,6 +9,8 @@
   },
   "timeLimit": 600,
   "respawnDelay": 3,
+  "spawnSafeSeconds": 2.5,
+  "frag": {"count": 2, "fuse": 2.2, "speed": 620, "lift": 160, "radius": 230, "damage": 150},
   "teams": [
     {"name": "Dawn", "color": "#e0a040", "model": "models/soldier.glb", "clips": {"idle": "Idle_Shoot", "run": "Run_Gun", "shoot": "Idle_Shoot", "death": "Death"}, "showMesh": ["Body", "Head", "ShoulderPad.L", "ShoulderPad.R", "AK"]},
     {"name": "Dusk", "color": "#4aa0e0", "model": "models/swat.glb", "clips": {"idle": "Idle_Gun_Pointing", "run": "Run_Shoot", "shoot": "Idle_Gun_Shoot", "death": "Death"}, "attachGun": "Wrist.R"}

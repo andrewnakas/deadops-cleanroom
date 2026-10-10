@@ -21,3 +21,5 @@ body.menu-open #scorebar,body.menu-open #minimap,body.menu-open #streaks,body.me
 #lobby button{background:#11141a;color:#e8e2d4;border:1px solid #4a4a44;padding:4px 8px;font-size:10px;letter-spacing:1px;cursor:pointer}#lobby>button{margin-top:8px}
 #xp-pop{position:fixed;top:57%;left:50%;transform:translateX(-50%);z-index:4;font:bold 13px Arial;letter-spacing:1.5px;color:#f0d070;text-shadow:0 2px 5px #000;opacity:0;transition:opacity .25s;pointer-events:none}
 #rank{color:#e0c890;letter-spacing:1px}#rank-track{grid-column:1/3;height:3px;background:#736d6250}#rank-bar{display:block;height:100%;width:0;background:#e0b060}#end-xp{font-size:13px;letter-spacing:1px;color:#f0d070}
+#hit-arc{position:fixed;left:50%;top:50%;width:260px;height:260px;border-radius:50%;border:5px solid transparent;border-top-color:#e04030;transform:translate(-50%,-50%);opacity:0;transition:opacity .2s;z-index:3;pointer-events:none;filter:drop-shadow(0 0 6px #a00)}
+body.menu-open #hit-arc{visibility:hidden}
