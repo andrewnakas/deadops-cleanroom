@@ -9,6 +9,7 @@
   },
   "timeLimit": 600,
   "respawnDelay": 3,
+  "classSlots": 5,
   "spawnSafeSeconds": 2.5,
   "frag": {"count": 2, "fuse": 2.2, "speed": 620, "lift": 160, "radius": 230, "damage": 150},
   "teams": [
