@@ -35,9 +35,9 @@ export class Enemies {
     if(this.autoSpawn!==false&&s.phase==='fighting'&&s.spawned<s.total&&this.list.length<24){
       this.nextSpawn-=dt;
       if(this.nextSpawn<=0){
-        const candidates=this.world.spawnBarriers(s).filter(b=>{const p=this.world.path(b.inside,player);return p.length>1&&p.at(-1).distanceTo(player)<150;});
+        const near=this.spawnNear?.()??player,candidates=this.world.spawnBarriers(s).filter(b=>{const p=this.world.path(b.inside,near);return p.length>1&&p.at(-1).distanceTo(near)<150;});
         if(candidates.length){
-          const b=candidates[Math.floor(s.random()*candidates.length)],nova=s.power&&!s.dogRound&&s.spawned%5===4&&['lobby','auditorium','alley'].includes(this.world.zoneAt(player.clone().add(new THREE.Vector3(0,35,0))));
+          const b=candidates[Math.floor(s.random()*candidates.length)],nova=s.power&&!s.dogRound&&s.spawned%5===4&&['lobby','auditorium','alley'].includes(this.world.zoneAt(near.clone().add(new THREE.Vector3(0,35,0))));
           this.spawn(s.dogRound||nova?b.inside:null,s.dogRound||nova?null:b,s.dogRound?'dog':nova?'nova':'zombie');
           this.nextSpawn=Math.max(.35,(this.data.rules.zombie_spawn_delay??2)*Math.pow(.95,s.round-1));
         }
@@ -58,14 +58,15 @@ export class Enemies {
         z.enterTime+=dt;const t=Math.min(1,z.enterTime/1.2);z.root.position.lerpVectors(z.enterFrom,z.barrier.inside,t);z.root.position.y+=Math.sin(t*Math.PI)*12;
         if(t===1){z.state='chase';z.repath=0;}continue;
       }
-      const lure=this.lureTarget?.(z),goal=lure??player;
-      const dist=z.root.position.distanceTo(player),at=z.root.position.clone().add(new THREE.Vector3(0,z.kind==='dog'?25:45,0)),eye=player.clone().add(new THREE.Vector3(0,40,0));
+      // Co-op: `pick` names the player this zombie is after; with nobody standing it waits where it is.
+      const tgt=this.pick?.(z,player),pl=tgt?.pos??player,lure=this.lureTarget?.(z)??(tgt?.none?z.root.position.clone():null),goal=lure??pl;
+      const dist=z.root.position.distanceTo(pl),at=z.root.position.clone().add(new THREE.Vector3(0,z.kind==='dog'?25:45,0)),eye=pl.clone().add(new THREE.Vector3(0,40,0));
       if(z.state==='attack'){
         z.attackLeft-=dt;
-        if(!z.attackDealt&&z.attackLeft<.62){z.attackDealt=true;if(!lure&&dist<76&&this.world.lineClear(at,eye))this.onDamage(z.kind==='dog'?40:z.kind==='nova'?45:50,at,z);}
+        if(!z.attackDealt&&z.attackLeft<.62){z.attackDealt=true;if(!lure&&dist<76&&this.world.lineClear(at,eye))this.onDamage(z.kind==='dog'?40:z.kind==='nova'?45:50,at,z,tgt?.id);}
         if(z.attackLeft<=0){z.state='chase';z.rig.play('walk',true,z.pace);}continue;
       }
-      if(!lure&&dist<62&&Math.abs(z.root.position.y-player.y)<50&&s.phase!=='reviving'&&this.world.lineClear(at,eye)){
+      if(!lure&&dist<62&&Math.abs(z.root.position.y-pl.y)<50&&s.phase!=='reviving'&&this.world.lineClear(at,eye)){
         z.state='attack';z.attackLeft=1.15;z.attackDealt=false;z.rig.play('attack',false,Math.max(.8,z.rig.duration('attack')/1.1));continue;
       }
       z.repath-=dt;
@@ -85,19 +86,25 @@ export class Enemies {
       z.stuck+=dt;
       if(z.stuck>12){const moved=z.lastPosition.distanceTo(z.root.position);z.lastPosition.copy(z.root.position);z.stuck=0;if(moved<5&&dist>100){z.path=[];z.repath=0;z.stuckCount=(z.stuckCount??0)+1;if(z.stuckCount>=3){this.remove(z);s.spawned--;}}else z.stuckCount=0;}
     }
-    for(const d of [...this.dead]){d.life-=dt;d.rig.update(dt);if(d.life<2)d.root.position.y-=dt*24;if(d.life<=0){d.root.removeFromParent();d.rig.dispose();disposeSkeletons(d.root);this.dead.splice(this.dead.indexOf(d),1);}}
+    this.fade(dt);
     if(this.autoRounds!==false&&s.phase==='fighting'&&s.spawned>=s.total&&this.list.length===0){if(s.dogRound)this.onKill?.(null,'supply',this.lastDogDeath??player);s.nextRound();this.nextSpawn=0;this.lastDogDeath=null;}
   }
+  fade(dt){for(const d of [...this.dead]){d.life-=dt;d.rig.update(dt);if(d.life<2)d.root.position.y-=dt*24;if(d.life<=0){d.root.removeFromParent();d.rig.dispose();disposeSkeletons(d.root);this.dead.splice(this.dead.indexOf(d),1);}}}
+  // Co-op joiner: the host's snapshots place the zombies; only animation and the death fade run here.
+  puppets(dt){for(const z of this.list){z.rig.update(dt);if(z.netPos){z.root.position.lerp(z.netPos,Math.min(1,dt*12));z.root.rotation.y=z.netYaw;}}this.fade(dt);}
+  puppetKill(z){this.list.splice(this.list.indexOf(z),1);z.state='dead';z.life=4;z.rig.play('death',false);this.dead.push(z);}
   remove(z){z.root.removeFromParent();z.rig.dispose();disposeSkeletons(z.root);this.list.splice(this.list.indexOf(z),1);}
   hurt(z,damage,head=false,melee=false,cause='bullet',score=true){
     if(!this.list.includes(z))return;
+    // Co-op joiner: show the hit now and send it; the host decides the kill and answers with the score.
+    if(this.remoteHurt){z.health-=damage;this.onHit?.(z,head);this.remoteHurt(z,damage,head,melee,cause);return;}
     z.health-=this.session.effects.onehit>this.session.time?Math.max(damage,z.health):damage;
-    this.onHit?.(z,head);
+    if(!this.scorer)this.onHit?.(z,head);
     if(z.health<=0){
       if(z.kind==='dog')this.lastDogDeath=z.root.position.clone();
-      if(score)this.session.scoreHit(true,head,melee);else{this.session.kills++;this.session.killed++;}this.list.splice(this.list.indexOf(z),1);z.state='dead';z.life=4;z.rig.play('death',false);this.dead.push(z);z.gasDeath=z.kind==='nova'&&!melee&&cause==='bullet';this.onKill?.(z);
+      if(this.scorer){this.scorer(true,head,melee);this.session.killed++;}else if(score)this.session.scoreHit(true,head,melee);else{this.session.kills++;this.session.killed++;}this.list.splice(this.list.indexOf(z),1);z.state='dead';z.life=4;z.rig.play('death',false);this.dead.push(z);z.gasDeath=z.kind==='nova'&&!melee&&cause==='bullet';this.onKill?.(z);
       if(this.dead.length>12){const old=this.dead.shift();old.root.removeFromParent();old.rig.dispose();disposeSkeletons(old.root);}
-    }else if(score)this.session.scoreHit(false);
+    }else if(this.scorer)this.scorer(false);else if(score)this.session.scoreHit(false);
   }
   rayHit(ray,far,ignore=null){
     let best=null;

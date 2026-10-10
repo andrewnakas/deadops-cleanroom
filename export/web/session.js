@@ -10,13 +10,13 @@ export class SurvivalSession extends Session {
     return base;
   }
   get weaponUnavailable(){return !!this.weapon.lost||!!(this.refinery?.weapon===this.weapon);}
-  get busy(){return ['gameover','reviving'].includes(this.phase)||!!this.drinking||this.meleeLeft>0||this.equipmentLeft>0;}
+  get busy(){return ['gameover','reviving'].includes(this.phase)||!!this.downState||!!this.drinking||this.meleeLeft>0||this.equipmentLeft>0;}
   update(dt){
     if(this.phase==='gameover')return;
     this.equipmentLeft=Math.max(0,this.equipmentLeft-dt);super.update(dt);
     if(this.refinery&&this.time>=this.refinery.expires){this.refinery.weapon.lost=true;this.refinery.weapon.mag=0;this.refinery.weapon.reserve=0;this.refinery=null;this.lastEvent='Refined weapon was left behind';}
   }
-  damage(n){const changed=super.damage(n);if(['reviving','gameover'].includes(this.phase)){this.cancelReload();this.meleeLeft=0;this.equipmentLeft=0;}return changed;}
+  damage(n){const changed=super.damage(n);if(['reviving','gameover'].includes(this.phase)||this.downState){this.cancelReload();this.meleeLeft=0;this.equipmentLeft=0;}return changed;}
   fire(){return !this.busy&&!this.weaponUnavailable&&super.fire();}
   reload(){return !this.busy&&!this.weaponUnavailable&&super.reload();}
   switchWeapon(slot){if(this.busy)return false;super.switchWeapon(slot);return true;}

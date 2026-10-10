@@ -20,7 +20,7 @@ export async function social({ env, me }) {
   const friends = (await db.prepare(`SELECT f.a, f.state, x.id, x.name, x.seen, x.room, x.rating, x.games FROM friend f
     JOIN account x ON x.id = CASE WHEN f.a=?1 THEN f.b ELSE f.a END WHERE f.a=?1 OR f.b=?1 LIMIT ${FRIEND_MAX}`).bind(me.id).all()).results;
   const codes = [...new Set(friends.filter(f => f.state === 'ok' && f.room && online(f, t)).map(f => f.room))];
-  const open = new Set(codes.length ? (await db.prepare(`SELECT code FROM room WHERE free>0 AND expires>? AND code IN (${codes.map(() => '?').join(',')})`).bind(t, ...codes).all()).results.map(r => r.code) : []);
+  const open = new Set(codes.length ? (await db.prepare(`SELECT code FROM room WHERE free>0 AND playlist!='coop' AND expires>? AND code IN (${codes.map(() => '?').join(',')})`).bind(t, ...codes).all()).results.map(r => r.code) : []);
   const recent = (await db.prepare('SELECT x.id, x.name, r.at FROM recent r JOIN account x ON x.id=r.other WHERE r.account=? ORDER BY r.at DESC LIMIT 20').bind(me.id).all()).results;
   const invites = (await db.prepare('SELECT i.party, x.name FROM invite i JOIN account x ON x.id=i.sender JOIN party p ON p.id=i.party WHERE i.account=? AND i.at>?').bind(me.id, t - PARTY_IDLE).all()).results;
   let party = await partyFor(env, me.id);

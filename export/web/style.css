@@ -5,3 +5,9 @@
 #objective{position:fixed;top:84px;left:36px;color:#c6b89a;font:11px/1.5 sans-serif;letter-spacing:1px;pointer-events:none;text-shadow:0 1px 3px #000;z-index:3}.menu-open #objective{display:none}#grenades{max-width:560px;line-height:1.7}
 
 .powerup-timer b{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:radial-gradient(circle,#fff8d8,var(--c) 60%,#2a1c08);color:#1a1206;font-size:16px;box-shadow:0 0 10px var(--c)}#weapon-name.refined{color:#c9a3ff;text-shadow:0 0 8px #8a5cff}#round.hounds{color:#e0702a}.kicker{text-transform:uppercase}
+
+/* co-op */
+#coop{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 2px;font:10px Arial;letter-spacing:2px;color:#aeb0a1}#coop span{flex-basis:100%}
+#coop button,#coop input{background:#11141a;color:#e8e2d4;border:1px solid #4a4a44;padding:6px 8px;font-size:10px;letter-spacing:1px}#coop button{cursor:pointer}#coop input{width:84px;text-transform:uppercase}
+#coop-status{font:11px Arial;letter-spacing:1px;color:#9fd0ff;min-height:14px;margin:2px 0}#coop-status b{color:#e0b060;user-select:all}
+#mates{position:fixed;left:22px;top:54px;z-index:3;display:flex;flex-direction:column;gap:3px;font:11px Arial;letter-spacing:2px;color:#cfe6c0;text-shadow:0 1px 3px #000;pointer-events:none}#mates .down{color:#ff8a60}#mates .out{color:#8a8a84}

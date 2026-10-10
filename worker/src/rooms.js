@@ -6,11 +6,11 @@ import { partyFor } from './social.js';
 const TTL = 40, RANKED_SIZE = 4;
 const sweep = env => env.DB.prepare('DELETE FROM room WHERE expires<?').bind(now()).run();
 const listed = r => ({ code: r.code, playlist: r.playlist, map: r.map, mode: r.mode, size: r.size, humans: r.humans, free: r.free, started: !!r.started, rating: r.avg_rating });
-async function follow(env, me, room) {
-  await env.DB.batch([
-    env.DB.prepare('UPDATE account SET room=? WHERE id=?').bind(room, me.id),
-    env.DB.prepare('UPDATE party SET room=?, updated=? WHERE leader=?').bind(room, now(), me.id),
-  ]);
+// Records where the caller is. A party follows its leader into multiplayer rooms only (zombies co-op has no party yet).
+async function follow(env, me, room, party = true) {
+  const jobs = [env.DB.prepare('UPDATE account SET room=? WHERE id=?').bind(room, me.id)];
+  if (party) jobs.push(env.DB.prepare('UPDATE party SET room=?, updated=? WHERE leader=?').bind(room, now(), me.id));
+  await env.DB.batch(jobs);
 }
 
 // A host registers its room and repeats the call as a heartbeat. The reply names the players whose tickets
@@ -35,7 +35,7 @@ export async function putRoom({ env, me, body }) {
     ON CONFLICT(code) DO UPDATE SET host=excluded.host, playlist=excluded.playlist, map=excluded.map, mode=excluded.mode, size=excluded.size,
     humans=excluded.humans, free=excluded.free, started=excluded.started, avg_rating=excluded.avg_rating, expires=excluded.expires`)
     .bind(c, me.id, playlist, cleanId(body.map, 'suburb'), cleanId(body.mode, 'tdm'), int(body.size, 1, 8, 6), int(body.humans, 1, 16, 1), int(body.free, 0, 15, 0), body.started ? 1 : 0, avg, t + TTL).run();
-  await follow(env, me, c);
+  await follow(env, me, c, playlist !== 'coop');
   return { ok: true, playlist, players, me: publicAccount(me) };
 }
 
@@ -66,13 +66,13 @@ export async function quick({ env, me, body }) {
   if (rows.length) {
     const r = rows[0];
     await env.DB.prepare('UPDATE room SET free=MAX(0, free-?) WHERE code=?').bind(need, r.code).run();
-    await follow(env, me, r.code);
+    await follow(env, me, r.code, playlist !== 'coop');
     return { join: r.code, ...listed(r) };
   }
   const c = 'Q' + code(4), size = ranked ? RANKED_SIZE : int(body.size, 1, 8, 6), mode = ranked ? 'tdm' : cleanId(body.mode, 'tdm'), map = cleanId(body.map, 'suburb');
   await env.DB.prepare('INSERT INTO room (code, host, playlist, map, mode, size, humans, free, started, avg_rating, expires) VALUES (?,?,?,?,?,?,?,?,0,?,?)')
     .bind(c, me.id, playlist, map, mode, size, need, size * 2 - need, me.rating, t + 25).run();
-  await follow(env, me, c);
+  await follow(env, me, c, playlist !== 'coop');
   return { host: c, playlist, map, mode, size };
 }
 

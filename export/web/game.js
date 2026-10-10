@@ -21,6 +21,8 @@ import { Crosshair, HitMarker, DamageArcs, Popups, Banners } from './hud.js';
 import { mountSettings } from './ui.js';
 import { Pipeline, enableShadows } from './post.js';
 import { assistTarget, pullToward } from './aim.js';
+import { createCoop } from './coop.js';
+import { Backend } from './backend.js';
 
 const $=id=>document.getElementById(id),keys=new Keys(),audio=new GameAudio(),pad=new Gamepad();
 const profile=configureAssets();
@@ -46,7 +48,7 @@ const SURFACE={lobby:'hard',stairs:'wood',balcony:'carpet',booth:'wood',auditori
 const data=await fetch('data/game.json').then(r=>r.json());
 for(const [id,w] of Object.entries(data.weapons)){w.id=id;w.fireType??=w.automatic?'Full Auto':'Single Shot';w.startAmmo??=w.reserveMax;}
 const map=buildCinema();
-let world,session,player,enemies,view,powerups,crate,ready=false,active=false,started=false,primary=false,primaryPressed=false,ads=false;
+let world,session,player,enemies,view,powerups,crate,coop=null,ready=false,active=false,started=false,primary=false,primaryPressed=false,ads=false;
 let prompt=null,promptText='',toastUntil=0,announcementUntil=0,hitUntil=0,flashUntil=0,spawn;
 let lastPhase='',lastRound=0,frameTime=0,frameCount=0,fps=0,debugVisible=false,repairLeft=0,burstLeft=0,drinkUntil=0;
 const grenades=[],projectiles=[],mines=[],decoys=[],gasClouds=[];
@@ -69,8 +71,8 @@ function setActive(value){
   if(active){if(!started){started=true;announce('Round 1','SURVIVE THE NIGHT');audio.play('round');audio.voice('round_1');}else if(session.phase==='preparing')announce('Round '+session.round,'GET READY');}
   else if(started&&session.phase!=='gameover'){$('start').innerHTML='RESUME <span>→</span>';$('restart').hidden=false;$('menu-status').textContent='Paused · Round '+session.round;}
 }
-function start(){if(!ready||contextLost)return;if(session.phase==='gameover')reset();audio.start();if(touchControls.mode||pad.connected){setActive(true);return;}renderer.domElement.requestPointerLock?.()?.catch?.(()=>toast('Click the game to capture the mouse'));}
-$('start').addEventListener('click',start);$('restart').addEventListener('click',()=>{reset();start();});
+function start(){if(!ready||contextLost)return;if(session.phase==='gameover'){if(coop){location.reload();return;}reset();}audio.start();if(touchControls.mode||pad.connected){setActive(true);return;}renderer.domElement.requestPointerLock?.()?.catch?.(()=>toast('Click the game to capture the mouse'));}
+$('start').addEventListener('click',start);$('restart').addEventListener('click',()=>{if(coop){location.reload();return;}reset();start();});
 renderer.domElement.addEventListener('click',()=>{if(!active)start();});
 document.addEventListener('pointerlockchange',()=>{if((touchControls.mode||pad.connected)&&!document.pointerLockElement)return;setActive(document.pointerLockElement===renderer.domElement);});
 function suspendRendering(){renderer.setAnimationLoop(null);if(ready){setActive(false);document.exitPointerLock?.();}audio.pause();}
@@ -104,12 +106,18 @@ pad.on('connect',()=>{toast('Controller connected');if(ready&&!active)$('menu-st
 function damage(n,from=null){
   if(!session.damage(n))return;audio.play('hurt');arcs.hit(from,session.time,n/60);feel.kick=Math.min(1,feel.kick+n/90);
   if(session.drinking)stopDrink();
-  if(session.phase==='gameover'){
+  if(session.phase==='gameover')gameOver();
+  else if(session.downState){primary=false;ads=false;announce('You are down','HOLD ON · A TEAMMATE CAN REVIVE YOU',5);}
+  else if(session.phase==='reviving'){announce('Back on your feet','SECOND WIND',4);}
+}
+function gameOver(){
+  if(session.phase!=='gameover'){session.phase='gameover';session.lastEvent='Game over';}
+  {
     primary=false;ads=false;setActive(false);document.exitPointerLock?.();$('start').innerHTML='TRY AGAIN <span>→</span>';$('restart').hidden=true;
     $('menu-status').textContent='You survived '+session.round+' round'+(session.round>1?'s':'');$('results').hidden=false;$('results').textContent=session.kills+' kills · '+session.headshots+' headshots · '+Math.floor(session.time/60)+'m '+Math.floor(session.time%60)+'s';
     try{const best=Math.max(session.round,+(localStorage.getItem('graveshift.best')||0));localStorage.setItem('graveshift.best',String(best));}catch{}
     audio.voice('game_over');
-  }else if(session.phase==='reviving'){announce('Back on your feet','SECOND WIND',4);}
+  }
 }
 function effect(position,color=0x7a1a14,count=7,size=1.5,speed=100){fx.burst(position,color,count,size,speed);}
 function hit(z,head){const dead=z.health<=0;marker.show(session.time,{head,kill:dead});audio.play(head?'headshot':'hit',.7);fx.blood(head?enemies.headPosition(z):z.root.position.clone().add(new THREE.Vector3(0,z.kind==='zombie'?42:25,0)),feel.lastDir,{heavy:dead,color:z.kind==='nova'?0x6f8f2a:0x7a1a14});}
@@ -128,11 +136,12 @@ function kill(z,force,position){
 function collect(type){
   if(!data.powerups[type])return;
   session.powerup(type);announce(pname(type),'POWER-UP',2.5);audio.play('powerup_grab');audio.voice('pu_'+type);
-  if(type==='blackout'){flashUntil=session.time+.8;audio.play('explosion',.6);enemies.blackout(z=>effect(z.root.position,0xc7dba4));}
-  if(type==='rebuild'){for(const b of world.barriers)world.setBoards(b,b.boards.length);audio.play('repair');}
+  const mine=coop?.role!=='client';
+  if(type==='blackout'){flashUntil=session.time+.8;audio.play('explosion',.6);if(mine)enemies.blackout(z=>effect(z.root.position,0xc7dba4));}
+  if(type==='rebuild'){if(mine)for(const b of world.barriers)world.setBoards(b,b.boards.length);audio.play('repair');}
 }
 function explode(p,radius,inner,outer,color=0xffb44e,selfScale=100){
-  fx.boom(p,radius,color);audio.at3(p,()=>audio.play('explosion',.9),3200);const near=camera.position.distanceTo(p);if(near<radius*2){flashUntil=Math.max(flashUntil,session.time+.08);feel.kick=Math.min(1,feel.kick+.5*(1-near/(radius*2)));}
+  fx.boom(p,radius,color);coop?.boom(p,radius);audio.at3(p,()=>audio.play('explosion',.9),3200);const near=camera.position.distanceTo(p);if(near<radius*2){flashUntil=Math.max(flashUntil,session.time+.08);feel.kick=Math.min(1,feel.kick+.5*(1-near/(radius*2)));}
   for(const z of [...enemies.list]){const d=z.root.position.distanceTo(p);if(d<radius&&world.lineClear(p.clone().add(new THREE.Vector3(0,8,0)),z.root.position.clone().add(new THREE.Vector3(0,30,0))))enemies.hurt(z,THREE.MathUtils.lerp(inner,outer,d/radius),false,false,'explosion');}
   const distance=player.getFeetPosition().add(new THREE.Vector3(0,30,0)).distanceTo(p);if(distance<radius*.8)damage(selfScale*(1-distance/(radius*.8)));
 }
@@ -142,7 +151,7 @@ function shoot(){
   if(!active||!view.ready||view.mode==='raise'||session.busy||session.weaponUnavailable)return false;
   if(session.reloadLeft>0&&session.def.segmentedReload&&session.weapon.mag>0){session.interruptReload();reloadShot=true;return false;}
   if(!session.fire()){if(session.weapon.mag===0&&primaryPressed){audio.dry();reload();}return false;}
-  const def=session.def;
+  const def=session.def;coop?.shot(def.id);
   view.shoot({ads});audio.shot(def);muzzle.position.copy(camera.position);muzzle.intensity=def.class==='energy'?0:4000;{const k=recoil.kick(def,{ads});camera.rotation.x=Math.min(1.48,camera.rotation.x+k.pitch);camera.rotation.y+=k.yaw;}
   const forward=camera.getWorldDirection(new THREE.Vector3()),gunTip=camera.localToWorld(view.tipOffset().multiplyScalar(36));feel.lastDir.copy(forward);
   if(def.class!=='energy'&&def.class!=='launcher'&&!def.projectileSpeed)fx.shell(camera.localToWorld(new THREE.Vector3(7,-7,-16)),new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion),def.class==='shotgun'?0xb03a2a:0xc8a040,player.getFeetPosition().y+1);
@@ -219,6 +228,7 @@ function findPrompt(){
     const dist=camera.position.distanceTo(e.position);if(dist<distance){distance=dist;prompt=e;}
   }
   for(const b of world.barriers){const d=camera.position.distanceTo(b.position.clone().add(new THREE.Vector3(0,25,0)));if(d<100&&d<distance){prompt={barrier:b};distance=d;}}
+  const mate=coop?.reviveTarget(camera.position);if(mate){prompt={revive:mate};promptText=coop.reviveText(mate);return;}
   if(!prompt)return;
   if(prompt.barrier){promptText=prompt.barrier.count<prompt.barrier.boards.length?'Hold F to rebuild barricade':'Barricade secured';return;}
   const e=prompt;
@@ -233,10 +243,10 @@ function findPrompt(){
 }
 function interact(){
   if(!active||session.busy)return false;findPrompt();if(!prompt)return false;
-  if(prompt.barrier)return repair(prompt.barrier);
+  if(prompt.revive)return false;if(prompt.barrier)return repair(prompt.barrier);
   const e=prompt,pay=n=>{if(!session.spend(n)){toast('Not enough points');audio.play('deny');return false;}audio.play('buy');return true;};
   if(e.kind==='axe'){if(session.axe||!pay(data.axe.price))return false;session.axe=true;toast(data.axe.name+' · V to swing');return true;}
-  if(e.kind==='door'){const d=world.doors.get(e.door);if(session.openDoors.has(e.door)||!pay(d.cost))return false;session.openDoors.add(e.door);session.flags.add(d.flag);world.setDoors(session);audio.play('door');toast('The way is clear');return true;}
+  if(e.kind==='door'){const d=world.doors.get(e.door);if(session.openDoors.has(e.door)||!pay(d.cost))return false;session.openDoors.add(e.door);session.flags.add(d.flag);world.setDoors(session);coop?.door(e.door);audio.play('door');toast('The way is clear');return true;}
   if(e.kind==='equipment'){if(session.tripminesOwned){toast('Press 4 to place a tripmine');return false;}if(!session.buyTripmines()){toast('Not enough points');audio.play('deny');return false;}audio.play('buy');toast('Tripmines · press 4 to place');return true;}
   if(e.kind==='wallbuy'){
     const d=data.weapons[e.weapon];if(session.refinery?.weapon===session.weapon)return false;
@@ -250,7 +260,7 @@ function interact(){
     if(!session.drink(id))return false;primary=false;primaryPressed=false;ads=false;burstLeft=0;reloadShot=false;
     view.drink(p.color,session.drinkLeft);drinkUntil=session.time+session.drinkLeft;audio.play('drink');audio.perk(id);toast(p.name+' — '+p.blurb,4);return true;
   }
-  if(e.kind==='power'&&!session.power){session.power=true;session.flags.add('power_on');ambient.intensity=1.1;announce('Power restored','THE SHOW GOES ON');audio.play('power');audio.voice('power_on');return true;}
+  if(e.kind==='power'&&!session.power){powerOn();coop?.power();return true;}
   if(e.kind==='crate'){
     if(crate.at(e.crate)){if(session.refinery?.weapon===session.weapon)return false;const weapon=crate.take(e.crate);if(!weapon)return false;
       if(weapon==='drummer'){session.giveDrummers();toast('Wind-up Drummers · X to throw');}else{session.giveWeapon(weapon);equipView();toast(data.weapons[weapon].name);}return true;}
@@ -265,8 +275,10 @@ function interact(){
   }
   return false;
 }
+function powerOn(){if(session.power)return;session.power=true;session.flags.add('power_on');ambient.intensity=1.1;announce('Power restored','THE SHOW GOES ON');audio.play('power');audio.voice('power_on');}
+function respawnMe(){session.revive();player.setSpawn(vector(spawn.position));player.respawn();camera.rotation.set(0,spawn.yaw,0);announce('Back in the fight','NEW ROUND',3);}
 function stopDrink(){view.stopDrink();drinkUntil=0;}
-function repair(b){if(b.count>=b.boards.length||repairLeft>0)return false;repairLeft=.75;world.setBoards(b,b.count+1);if(b.rewardRound!==session.round){b.rewardRound=session.round;b.reward=0;}if(b.reward<50*session.round){session.addPoints(10);b.reward+=10;}audio.play('repair');return true;}
+function repair(b){if(b.count>=b.boards.length||repairLeft>0)return false;repairLeft=.75;world.setBoards(b,b.count+1);coop?.board(b);if(b.rewardRound!==session.round){b.rewardRound=session.round;b.reward=0;}if(b.reward<50*session.round){session.addPoints(10);b.reward+=10;}audio.play('repair');return true;}
 function clearGroup(group){for(const item of group){item.mesh.removeFromParent();item.mesh.traverse(o=>{o.geometry?.dispose();});}group.length=0;}
 function reset(){
   pendingMelee=null;lastReloadSerial=0;reloadShot=false;drinkUntil=0;
@@ -285,9 +297,9 @@ function update(dt){
   if(!active&&gp.pressed.a&&ready)start();
   primary=mousePrimary||touch.fire||gp.fire;primaryPressed ||= touch.firePressed||gp.pressed.fire;const wasAds=ads;ads=mouseAim||touch.aim||gp.aim;
   feel.assist=null;if(active&&settings.aimAssist&&(pad.connected||touchControls.mode)&&enemies.list.length){feel.assist=assistTarget(camera,enemies.list.filter(z=>z.state!=='barricade').map(z=>z.root.position.clone().add(new THREE.Vector3(0,z.kind==='zombie'?44:24,0))));if(feel.assist&&ads&&!wasAds&&world.lineClear(camera.position,feel.assist.point))pullToward(camera,feel.assist);}
-  if(active){
-    if(gp.lookX||gp.lookY){const s=(ads?1.6:3.2)*dt*settings.padSens*(feel.assist?.55:1);look(gp.lookX*s,gp.lookY*s);}
-    if(gp.pressed.reload)reload();if(gp.pressed.use)interact();if(gp.pressed.melee)melee();if(gp.pressed.grenade)throwGrenade();if(gp.pressed.tactical)throwDrummer();if(gp.pressed.mine)placeMine();if(gp.pressed.swap){session.switchWeapon();equipView();}
+  if(active||coop?.live()){
+    if(active&&(gp.lookX||gp.lookY)){const s=(ads?1.6:3.2)*dt*settings.padSens*(feel.assist?.55:1);look(gp.lookX*s,gp.lookY*s);}
+    if(!active){}else{if(gp.pressed.reload)reload();if(gp.pressed.use)interact();if(gp.pressed.melee)melee();if(gp.pressed.grenade)throwGrenade();if(gp.pressed.tactical)throwDrummer();if(gp.pressed.mine)placeMine();if(gp.pressed.swap){session.switchWeapon();equipView();}}
     session.update(dt);
     if(session.phase!=='gameover'){
       resolveMelee();
@@ -295,17 +307,17 @@ function update(dt){
       const forward=keys.axis('forward','back')+touch.forward+gp.forward,strafe=keys.axis('right','left')+touch.strafe+gp.strafe;
       const moving=Math.hypot(forward,strafe)>.01,sprint=(keys.held('sprint')&&forward>.3||touch.sprint||gp.sprint&&forward>.3)&&!ads&&!session.reloadLeft&&!session.meleeLeft&&!session.drinking;
       {const k=moveScale(session.def,ads)*(session.perks.has('perk_stride')?1.1:1);player.moveSpeed=190*k;player.sprintSpeed=285*k*(session.perks.has('perk_stride')?1.06:1);}
-      player.update(dt,session.phase==='reviving'?{}:{forward:THREE.MathUtils.clamp(forward,-1,1),strafe:THREE.MathUtils.clamp(strafe,-1,1),sprint,crouch:keys.held('crouch')||touch.crouch||gp.crouch,jump:keys.held('jump')||gp.jump,jumpPressed:touch.jump});
+      player.update(dt,session.phase==='reviving'||session.downState||!active?{}:{forward:THREE.MathUtils.clamp(forward,-1,1),strafe:THREE.MathUtils.clamp(strafe,-1,1),sprint,crouch:keys.held('crouch')||touch.crouch||gp.crouch,jump:keys.held('jump')||gp.jump,jumpPressed:touch.jump});
       moveFeel(dt,moving,sprint,strafe);
       if(drinkUntil&&!session.drinking){view.stopDrink();drinkUntil=0;}
       view.update(dt,{moving,sprint,ads,reloading:session.reloadLeft>0,time:session.time,strafe,lookX:feel.lookX,lookY:feel.lookY,air:!player.onFloor,sliding:player.sliding,quiet:!settings.shake});feel.lookX=feel.lookY=0;
-      view.pivot.visible=!session.weaponUnavailable;
+      view.pivot.visible=!session.weaponUnavailable&&!session.downState;
       if(!sprint&&session.phase!=='reviving'&&(primaryPressed||(primary&&session.def.automatic)||burstLeft>0||reloadShot)){
         if(shoot()){reloadShot=false;if(burstLeft>0)burstLeft--;else if(session.def.fireType==='3-Round Burst')burstLeft=2;}
       }
       primaryPressed=false;
-      enemies.update(dt,player.getFeetPosition());
-      repairLeft=Math.max(0,repairLeft-dt);findPrompt();if((keys.held('use')||touch.use||gp.useHeld)&&prompt?.barrier)repair(prompt.barrier);
+      if(coop?.role==='client')enemies.puppets(dt);else enemies.update(dt,player.getFeetPosition());coop?.update(dt);
+      repairLeft=Math.max(0,repairLeft-dt);findPrompt();if(active&&(keys.held('use')||touch.use||gp.useHeld)){if(prompt?.barrier)repair(prompt.barrier);if(prompt?.revive)coop.holdRevive(prompt.revive,dt);}
       if(session.round!==lastRound||session.phase!==lastPhase){
         if(session.phase==='fighting'){announce(session.dogRound?'The hounds are loose':'Round '+session.round,session.dogRound?'HOUND NIGHT':'SURVIVE');audio.play(session.dogRound?'hounds':'round');audio.voice(session.dogRound?'hounds':'round_'+Math.min(session.round,10));}
         else if(session.phase==='preparing'&&session.round>1){announce('Round survived','RELOAD · REBUILD · REGROUP');audio.play('round_end');}
@@ -314,8 +326,8 @@ function update(dt){
       crate.update(dt);world.update(dt,session);
       let gassed=false;
       for(const g of [...gasClouds]){g.life-=dt;g.mesh.material.opacity=.14*Math.min(1,g.life/2);g.mesh.rotation.y+=dt*.2;if(player.getFeetPosition().distanceTo(g.position)<125)gassed=true;if(g.life<=0){g.mesh.removeFromParent();g.mesh.geometry.dispose();g.mesh.material.dispose();gasClouds.splice(gasClouds.indexOf(g),1);}}
-      renderer.domElement.style.filter=gassed?'blur(3px)':'';
-      powerups.update(dt,player.getFeetPosition(),session.phase!=='reviving',(a,b)=>world.lineClear(a,b));
+      renderer.domElement.style.filter=(gassed?'blur(3px) ':'')+(session.downState?'grayscale(1) brightness(.6)':'');
+      powerups.update(dt,player.getFeetPosition(),session.phase!=='reviving'&&!session.downState,(a,b)=>world.lineClear(a,b));
       const bounce=(g,dt)=>{g.velocity.y-=650*dt;const travel=g.velocity.clone().multiplyScalar(dt),ray=new THREE.Ray(g.mesh.position.clone(),travel.clone().normalize()),h=world.raycast(ray,0,travel.length()+4);if(h){g.velocity.y=Math.abs(g.velocity.y)*.35;g.velocity.x*=-.35;g.velocity.z*=-.35;if(Math.abs(g.velocity.y)<40){g.velocity.set(0,0,0);g.landed=true;}}else g.mesh.position.add(travel);};
       for(const g of [...grenades]){g.life-=dt;bounce(g,dt);g.mesh.rotation.x+=dt*8;if(g.life<=0){explode(g.mesh.position.clone(),300,1500,75,0xffb347,180);g.mesh.removeFromParent();grenades.splice(grenades.indexOf(g),1);}}
       for(const d of [...decoys]){d.life-=dt;if(!d.landed)bounce(d,dt);else{d.mesh.userData.sticks.forEach((s,i)=>s.rotation.x=Math.sin(session.time*30+i*3)*.6);if(Math.floor(session.time*4)!==d.beat){d.beat=Math.floor(session.time*4);audio.knife('wall');}}
@@ -353,11 +365,12 @@ function hud(){
   const effectHtml=Object.entries(s.effects).filter(([k,t])=>t>s.time&&data.powerups[k]).map(([k,t])=>`<span class="powerup-timer ${t-s.time<5&&Math.floor(s.time*4)%2?'expiring':''}" style="--c:${data.powerups[k].color}"><b>${data.powerups[k].glyph}</b><span>${Math.ceil(t-s.time)}s</span></span>`).join('');if($('effects').innerHTML!==effectHtml)$('effects').innerHTML=effectHtml;
   $('location').textContent=zoneNames[world.zoneAt(player.getFeetPosition().add(new THREE.Vector3(0,35,0)))]??'Starlight Picturehouse';
   $('objective').textContent=!s.power?'Find the projection booth and restore the power':s.perks.size<2?'Visit the drink machines':'';
+  if(coop){const h=coop.hud();if($('mates').innerHTML!==h)$('mates').innerHTML=h;}
   if(debugVisible)$('debug').textContent=`${fps} FPS · ${renderer.info.render.calls} calls\n${camera.position.toArray().map(v=>v.toFixed(1)).join(', ')}\n${enemies.list.length} undead · ${world.navDisabled.size} blocked polygons`;
 }
 function getState(){return {ready,active,started,input:{touch:touchControls.getState(),primary,ads,gamepad:pad.connected},...(session?session.snapshot():{}),player:player?{...player.state,rotation:camera.rotation.toArray().slice(0,3),position:camera.position.toArray(),feet:player.getFeetPosition().toArray()}:null,enemies:enemies?.snapshot()??[],prompt:promptText,
   barriers:world?.barriers.map(b=>({id:b.id,count:b.count,position:b.position.toArray(),inside:b.inside.toArray(),zone:b.zone}))??[],doors:world?[...world.doors.values()].map(d=>({name:d.name,cost:d.cost,flag:d.flag,open:session.openDoors.has(d.name),triggers:d.triggers})):[],
-  performance:{fps,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},viewmodelReady:view?.ready??false,errors:[...errors]};}
+  performance:{fps,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},viewmodelReady:view?.ready??false,coop:coop?.state()??null,errors:[...errors]};}
 const entityList=()=>map.kit.entities.filter(e=>!['zone','screen','poster'].includes(e.type));
 const debug={getState,setActive,pause:()=>setActive(false),resume:()=>setActive(true),reset,teleportPlayer:p=>player.setPosition(vector(p)),lookAt:p=>camera.lookAt(vector(p)),damagePlayer:damage,grantPoints:n=>session.points+=n,interact,shoot,reload,melee,
   giveWeapon:id=>{session.giveWeapon(id);equipView();},spawnEnemy:(p,kind)=>enemies.spawn(vector(p),null,kind).id,clearEnemies:()=>{for(const z of [...enemies.list])enemies.hurt(z,999999);},collectPowerup:collect,
@@ -374,8 +387,34 @@ const debug={getState,setActive,pause:()=>setActive(false),resume:()=>setActive(
   setRound:n=>{enemies.reset();while(session.round<n)session.nextRound();session.countdown=0;session.spawned=0;session.killed=0;},
   openAllDoors:()=>{for(const d of world.doors.values()){session.openDoors.add(d.name);session.flags.add(d.flag);}world.setDoors(session);},
   setPower:on=>{session.power=!!on;if(on){session.flags.add('power_on');ambient.intensity=1.1;}},
+  interactWith:(kind,key)=>{const e=world.interactions.find(i=>i.kind===kind&&(key==null||i.door===key||i.perk===key||i.weapon===key));if(!e)return false;camera.position.copy(e.position);return interact();},
+  coopRevive:()=>{const m=coop?.reviveTarget(camera.position);if(m)coop.holdRevive(m,3.1);return !!m;},
   data:()=>data};
 globalThis.game={debug};
+// ---------- co-op (index.html?host=CODE / ?join=CODE) ----------
+const query=new URLSearchParams(location.search),savedName=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.class')||'{}').name||'';}catch{return '';}})();
+let api=null;
+async function setupCoop(role,room){
+  try{
+    coop=await createCoop({role,room,name:savedName||'Guest',scene,data,session,enemies,world,player,camera,powerups,audio,fx,toast,announce,hurt:damage,collect,powerOn,gameOver,respawn:respawnMe,started:()=>started,status:t=>{$('coop-status').textContent=role==='host'?`Room ${room} · ${t}`:t;}});
+    $('mode-label').textContent='CO-OP';const link=location.origin+location.pathname+'?join='+room;
+    if(role==='host')$('coop-status').innerHTML=`Co-op room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a> · up to 4 players`;else $('coop-status').textContent='Joined co-op room '+room;
+    $('coop').hidden=true;addEventListener('pagehide',()=>{coop.leave();if(role==='host'&&api?.me)api.call('DELETE','rooms/'+room);});
+    if(role==='host'&&api?.on&&await api.signIn(savedName||'Guest')){const beat=()=>{if(!coop.over)api.call('POST','rooms',{code:room,playlist:'coop',map:'cinema',mode:'coop',size:2,started,humans:1+coop.mates.size,free:3-coop.mates.size});};beat();setInterval(beat,15000);}
+  }catch(e){
+    console.warn('co-op',e);coop=null;session.coop=false;enemies.autoSpawn=enemies.autoRounds=undefined;enemies.remoteHurt=enemies.pick=enemies.spawnNear=null;
+    $('coop-status').textContent=`Could not ${role==='host'?'open':'join'} room ${room} · playing solo`;
+  }
+}
+function coopMenu(){
+  $('coop-name').value=savedName;const go=q=>{const n=$('coop-name').value.trim().replace(/[^\w .\-]/g,'').slice(0,14);try{const s=JSON.parse(localStorage.getItem('graveshift.class')||'{}');s.name=n;localStorage.setItem('graveshift.class',JSON.stringify(s));}catch{}location.search=q;};
+  $('coop-host').addEventListener('click',()=>go('?host='+Math.random().toString(36).slice(2,7).toUpperCase()));
+  $('coop-join').addEventListener('click',()=>{const c=$('coop-code').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(c)go('?join='+c);});
+  $('coop-quick').hidden=!api?.on;$('coop-quick').addEventListener('click',async()=>{
+    $('coop-status').textContent='Looking for a co-op game…';const r=await api.signIn($('coop-name').value.trim()||'Guest')?await api.call('POST','quick',{playlist:'coop',map:'cinema',mode:'coop',size:2},6000):null;
+    if(r?.join)go('?join='+r.join);else if(r?.host)go('?host='+r.host);else $('coop-status').textContent=r?.error?'Matchmaking: '+r.error:'Online services are not reachable · host a room and share the link';
+  });
+}
 let grenadeModel=null,mineModel=null;
 // Camera and sound response to movement: footsteps by surface, bob, landing dip, strafe roll, hit kick.
 function moveFeel(dt,moving,sprint,strafe){
@@ -389,7 +428,7 @@ function moveFeel(dt,moving,sprint,strafe){
   feel.dip=THREE.MathUtils.damp(feel.dip,0,8,dt);feel.kick=THREE.MathUtils.damp(feel.kick,0,6,dt);
   feel.roll=THREE.MathUtils.damp(feel.roll,settings.shake?(-THREE.MathUtils.clamp(strafe,-1,1)*.012+(player.sliding?.05:0)+Math.sin(session.time*40)*feel.kick*.02):0,10,dt);
   feel.bob=player.onFloor&&moving&&settings.shake&&!player.sliding?feel.bob+dt*(sprint?13:9):feel.bob;
-  camera.rotation.z=feel.roll;camera.position.y+=(settings.shake?Math.abs(Math.sin(feel.bob))*(sprint?1.5:.8):0)-feel.dip*7;
+  camera.rotation.z=feel.roll+(session.downState?.5:0);if(session.downState)camera.position.y-=34;camera.position.y+=(settings.shake?Math.abs(Math.sin(feel.bob))*(sprint?1.5:.8):0)-feel.dip*7;
   const rc=recoil.update(dt);camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x+rc.pitch,-1.5,1.5);camera.rotation.y+=rc.yaw;
 }
 const settingsPanel=mountSettings({anchor:$('restart'),keys,actions:['forward','back','left','right','jump','crouch','sprint','reload','use','melee','lethal','tactical','equipment','swap','weapon1','weapon2','weapon3','inspect','mute']});
@@ -400,12 +439,15 @@ try{
   player=new PlayerController(camera,world.physics,{spawn:vector(spawn.position),spawnIsEye:false,radius:14,height:70,eyeHeight:60,moveSpeed:190,sprintSpeed:285,crouchSpeed:95,gravity:800,jumpHeight:39,fallResetY:-800,maxSubSteps:12,groundSnapSpeed:10});
   camera.rotation.set(0,spawn.yaw,0);
   progress('Waking the dead',80);view=new ViewModel(viewScene,data,audio);
-  enemies=new Enemies(scene,world,data,session,{damage,kill,hit,sound:(kind,p,v=1)=>audio.at3(p,()=>{if(kind==='growl')audio.growl(v);else audio.play(kind,v);},kind==='step'?700:1500)});
+  enemies=new Enemies(scene,world,data,session,{damage:(n,at,z,who)=>{if(coop?.hurtRemote(who,n,at))return;damage(n,at);},kill,hit,sound:(kind,p,v=1)=>audio.at3(p,()=>{if(kind==='growl')audio.growl(v);else audio.play(kind,v);},kind==='step'?700:1500)});
   enemies.lureTarget=z=>{const d=decoys.find(d=>d.landed);return d?d.mesh.position.clone():null;};
   world.actors=()=>enemies.list;
-  powerups=new Powerups(scene,data,audio,collect);crate=new LuckyCrate(scene,world,data,session,audio,toast);
+  powerups=new Powerups(scene,data,audio,(type,at,item)=>{if(coop)coop.onCollect(type,item);else collect(type);});crate=new LuckyCrate(scene,world,data,session,audio,toast);
   const [g,m]=await Promise.all([loadAsset('models/grenade.glb').catch(()=>null),loadAsset('models/landmine.glb').catch(()=>null),enemies.load(),view.load(),audio.load(),powerups.load(),crate.load()]);grenadeModel=g;mineModel=m;
   enableShadows(renderer,pipeline.tier,{receivers:[world.static],lights:[flashlight]});
+  api=new Backend((await fetch('data/mp.json').then(r=>r.json()).catch(()=>({}))).backend,query.get('api'));coopMenu();
+  const coopRoom=(query.get('join')??query.get('host')??'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
+  if(coopRoom){progress('Opening the co-op room',95);await setupCoop(query.get('join')?'client':'host',coopRoom);}
   await equipView();player.update(.05,{});ready=true;
   progress('Ready',100);$('loading').hidden=true;$('start').disabled=contextLost;$('menu-status').textContent=touchControls.mode?'Tap to enter':pad.connected?'Press START to play':'Click to capture the mouse · Esc to pause';
 }catch(error){console.error(error);errors.push(String(error));$('load-label').textContent='Unable to start: '+error.message;$('menu-status').textContent='See the browser console for details';}
