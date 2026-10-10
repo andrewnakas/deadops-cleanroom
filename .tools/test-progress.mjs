@@ -19,6 +19,10 @@ try {
   const menu = await page.evaluate(() => ({ rank: document.getElementById('rank').textContent, locked: [...document.querySelectorAll('#cls-primary option:disabled')].length, open: [...document.querySelectorAll('#cls-primary option:not(:disabled)')].map(o => o.value), p: game.debug.progress() }));
   check('a new profile starts at level 1', menu.p.level === 1 && menu.p.xp === 0 && menu.rank.startsWith('LEVEL 1'), menu.rank);
   check('locked weapons are disabled in the class menu', menu.locked === 4 && menu.open.join() === 'halvard', `${menu.locked} locked, open: ${menu.open}`);
+  const slots = await page.evaluate(() => { const $ = id => document.getElementById(id), pick = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('change')); };
+    $('cls-secondary').value = 'warden'; pick('cls-slot', '2'); const before = game.debug.loadout().slot; pick('cls-slot', '0');
+    return { before, l: game.debug.loadout(), stored: JSON.parse(localStorage.getItem('graveshift.class')) }; });
+  check('five classes are kept and the chosen one is saved', slots.before === 2 && slots.l.slots.length === 5 && slots.l.slot === 0 && slots.stored.slots.length === 5 && slots.stored.slot === 0);
   await page.evaluate(() => { game.debug.start(); document.getElementById('menu').hidden = true; });
   const frag = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human); d.camera.rotation.x = .3; d.throwFrag(); const thrown = d.getState().nades, left = me.frags; d.step(3); d.hurtFrom([0, 0, 0]);
     return { thrown, left, after: d.getState().nades }; });

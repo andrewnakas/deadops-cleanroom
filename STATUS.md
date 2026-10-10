@@ -50,15 +50,17 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   to 75 with 0 errors. The warehouse lighting was raised after one dark screenshot and has not been looked at since.
 - **Match feel (2026-10-10):** 2.5 s of spawn protection (ends when you fire or throw), a red HUD arc pointing at
   whoever hit you, and frag grenades (2 per life on G, 2.2 s fuse; bots throw them, a joiner's throw goes through
-  the host). A grenade in flight is not drawn for other online players, only its explosion. No gamepad or touch
-  binding for the frag yet.
+  the host). A grenade in flight is not drawn for other online players, only its explosion. 
+- **Class slots (2026-10-10):** five saved classes (primary, secondary, three perks each). Changing class in a match
+  applies on the next spawn; an online joiner can only pick a class before joining. The frag is also on the gamepad
+  right bumper and the touch grenade button.
 - **Online hardening (2026-10-10):** a joiner's killfeed keeps only the name colour and italic tags from the host,
   and joining retries for about 15 s so PLAY AGAIN on both sides brings the room back to the lobby.
 - **Known flake:** `test:p2p` failed twice on its first page load when run straight after another suite and passed
   on rerun each time.
 
 ## NOT PUBLISHED (2026-10-10)
-Everything from 2026-10-10 (overhaul, lobby, progression, Recovery mode, Cinder Yard, match feel, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
+Everything from 2026-10-10 (overhaul, lobby, progression, Recovery mode, Cinder Yard, match feel, class slots, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
 permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
 (gates were clean at the time: 0 failing licences, 0 mark hits).
 
@@ -84,7 +86,7 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 
 ## MP parity backlog (owner asked 2026-10-09; next session)
 Done: pre-game lobby (team select, ready-up, host remove, countdown). local XP, levels, medals and unlocks. Not built yet: lobby chat and map vote, public matchmaking and quick play,
-parties, host migration, ranked and leaderboards, prestige and challenges, class slots and attachments,
+parties, host migration, ranked and leaderboards, prestige and challenges, attachments,
 more modes (TDM and Recovery exist), arena 3 and map rotation or vote, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
