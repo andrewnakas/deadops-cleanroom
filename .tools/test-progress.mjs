@@ -23,6 +23,8 @@ try {
     $('cls-secondary').value = 'warden'; pick('cls-slot', '2'); const before = game.debug.loadout().slot; pick('cls-slot', '0');
     return { before, l: game.debug.loadout(), stored: JSON.parse(localStorage.getItem('graveshift.class')) }; });
   check('five classes are kept and the chosen one is saved', slots.before === 2 && slots.l.slots.length === 5 && slots.l.slot === 0 && slots.stored.slots.length === 5 && slots.stored.slot === 0);
+  const fit = await page.evaluate(() => ({ open: [...document.querySelectorAll('#cls-fit option:not(:disabled)')].map(o => o.value), n: document.querySelectorAll('#cls-fit option').length }));
+  check('fittings are listed and locked by level', fit.n === 5 && fit.open.join() === 'none', JSON.stringify(fit));
   await page.evaluate(() => { game.debug.start(); document.getElementById('menu').hidden = true; });
   const frag = await page.evaluate(() => { const d = game.debug, me = d.soldiers.find(s => s.human); d.camera.rotation.x = .3; d.throwFrag(); const thrown = d.getState().nades, left = me.frags; d.step(3);
     return { thrown, left, after: d.getState().nades }; });
@@ -57,6 +59,10 @@ try {
   await page.evaluate(() => document.getElementById('tour').click());
   await page.waitForFunction(() => globalThis.game?.debug.getState().ready && game.debug.progress().tour === 1, null, { timeout: 120000 });
   const tour = await page.evaluate(() => ({ p: game.debug.progress(), rank: document.getElementById('rank').textContent, locked: document.querySelectorAll('#cls-primary option:disabled').length }));
+  await page.evaluate(() => { const p = JSON.parse(localStorage.getItem('graveshift.progress')); p.xp = 3000; localStorage.setItem('graveshift.progress', JSON.stringify(p)); });
+  await page.reload(); await page.waitForFunction(() => globalThis.game?.debug.getState().ready, null, { timeout: 120000 });
+  const mag = await page.evaluate(() => { const $ = id => document.getElementById(id); $('cls-fit').value = 'longmag'; $('start').click(); const me = game.debug.soldiers.find(s => s.human); return { clip: me.arms.def.clipSize, mag: me.arms.state.mag, fit: game.debug.loadout().fitting, level: game.debug.progress().level }; });
+  check('a long magazine holds half again the rounds', mag.fit === 'longmag' && mag.clip === 45 && mag.mag === 45, JSON.stringify(mag));
   check('a new tour resets level and unlocks and keeps totals', tour.p.level === 1 && tour.p.kills === 30 && tour.rank.startsWith('TOUR 2 · LEVEL 1') && tour.locked === 4, tour.rank);
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   console.log('PASS progress');

@@ -77,6 +77,9 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   lost, either team at 90% of the limit, zone moved, the three killstreaks, enemy airstrike, host changed. The
   host relays streak lines to joiners. Checked by a probe listing the lines spoken in a Holdout match; not
   listened to. They are in `assets/voice_lines.csv` for recording (33 lines now).
+- **Fittings (2026-10-10):** one fitting for the primary in each class: Long Magazine (level 2), Long Barrel (5),
+  Light Bolt (8), Muffler (10, shots stay off the minimap). Numbers are in `"fittings"` in `data/mp.json`; they
+  have no model on the gun, and bots do not use them. Only the Long Magazine is covered by a test.
 - **Bots in Recovery** pick up a marker within 280 units even while fighting (matches on Gull Wharf were running
   out the clock otherwise; they still reach the 10-minute limit there about as often as the score limit).
 - **Tests:** suites wait for the local server to answer instead of a fixed delay (this was the likely cause of the
@@ -113,7 +116,7 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 Done: pre-game lobby (team select, ready-up, host remove, countdown, chat, arena vote), rematch with arena rotation,
 host migration, local XP, levels, medals and unlocks, three modes (TDM, Recovery, Holdout), three arenas.
 Not built yet: public matchmaking and quick play, parties, ranked and leaderboards, prestige and
-more challenges, attachments, killcam, friends/stats, zombies co-op, TURN relay.
+more challenges, killcam, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
 ## For the morning
