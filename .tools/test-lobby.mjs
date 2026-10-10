@@ -19,6 +19,15 @@ try {
   check('host waits in the lobby', await host.evaluate(() => !game.debug.getState().started && !document.getElementById('lobby').hidden));
   const client = await mk(`http://127.0.0.1:${port}/mp.html?join=${room}`);
   await client.waitForFunction(() => globalThis.game?.debug.lobby()?.players.length === 2, null, { timeout: 60000 });
+  await client.evaluate(() => game.debug.lobbySay('hello <b>there</b>')); await host.evaluate(() => game.debug.lobbySay('welcome'));
+  await client.waitForFunction(() => game.debug.lobby().chat.length === 2, null, { timeout: 10000 });
+  const said = await client.evaluate(() => ({ chat: game.debug.lobby().chat, html: document.querySelector('.lobby-chat').innerHTML }));
+  check('lobby chat reaches both players, stripped of markup', said.chat[0].v === 'hello bthereb' && said.chat[1].v === 'welcome' && !said.html.includes('<b>there'), JSON.stringify(said.chat));
+  await client.click('#lobby button[data-vote=yard]'); await host.click('#lobby button[data-vote=yard]');
+  await host.waitForFunction(() => game.debug.lobby().votes.yard === 2, null, { timeout: 10000 });
+  await host.click('#start');
+  for (const p of [host, client]) await p.waitForFunction(() => globalThis.game?.debug.getState().map === 'yard' && game.debug.lobby()?.players.length === 2, null, { timeout: 90000 });
+  check('the voted arena loads for both and the lobby reforms', true);
   const c0 = await lobby(client);
   check('joiner sees both players', c0.you === 1 && c0.players[0].host && !c0.players[1].ready, JSON.stringify(c0.players));
   check('joiner is balanced onto the other team', c0.players[1].team !== c0.players[0].team);

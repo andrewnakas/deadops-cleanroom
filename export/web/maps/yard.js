@@ -37,7 +37,7 @@ export function buildYard(){
   k.box(-1450,0,-120,-1250,120,120,'siding');k.box(1250,0,-120,1450,120,120,'siding');
   k.box(-1180,0,250,-1070,60,340,'carpaint_b');k.box(1070,0,-340,1180,60,-250,'carpaint');
   // lights: sodium lamps over the yard, work lights in the warehouse
-  k.light([0,150,0],0xffd9a0,1.6,900);k.light([-260,150,0],0xffd9a0,1.2,600);k.light([260,150,0],0xffd9a0,1.2,600);k.light([-900,320,-600],0xffb070,.9,1200);k.light([900,320,600],0xffb070,.9,1200);
+  k.light([0,105,0],0xffd9a0,1.6,1000);k.light([-270,105,-120],0xffd9a0,1.3,750);k.light([270,105,120],0xffd9a0,1.3,750);k.light([-270,105,150],0xffd9a0,1,650);k.light([270,105,-150],0xffd9a0,1,650);k.light([-900,320,-600],0xffb070,.9,1200);k.light([900,320,600],0xffb070,.9,1200);
   k.light([0,300,-720],0xffe0b0,.8,900);k.light([0,300,640],0xb0c8ff,.8,1100);k.light([-900,300,600],0xb0c8ff,.6,900);k.light([900,300,-600],0xb0c8ff,.6,900);
   // spawns: two teams, spread along the yard
   for(const [i,z] of [-700,-520,-340,-180,180,340,520,700].entries()){k.entity({type:'spawn',team:0,position:[-1350+(i%2)*80,0,z],yaw:-Math.PI/2});k.entity({type:'spawn',team:1,position:[1350-(i%2)*80,0,z],yaw:Math.PI/2});}
