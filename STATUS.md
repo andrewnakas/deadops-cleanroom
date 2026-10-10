@@ -2,7 +2,7 @@
 
 Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/deadops-cleanroom
 
-## Works (2026-10-09)
+## Works (2026-10-10)
 - **Zombies mode playable** in the browser: keyboard and mouse, gamepad (standard mapping) and touch.
 - **Original map, "Starlight Picturehouse":** lobby (start), stair hall, balcony, projection booth (power switch),
   auditorium with seats, stage and screen, dressing rooms and back alley. It has 5 buyable doors, 10 boarded windows,
@@ -29,6 +29,19 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   slot, owns only their movement, and sends shot rays that the host checks. `npm run test:p2p` joins two real
   browsers and passes (slot takeover, position sync, shots and kills through the host, slot handed back on leave).
 
+- **Feel and settings overhaul (2026-10-10):** recoil, spread, damage falloff, aim assist, hit markers, damage arcs,
+  score popups, bloom and shadows with quality tiers, and a settings menu with key rebinding. This was the work the
+  crashed session left uncommitted; it was reviewed, passed every suite and both gates, and is committed.
+- **Pre-game lobby (2026-10-10):** a hosted room now waits in a lobby instead of starting at once. It shows both
+  teams, lets each player switch team and ready up, lets the host remove a player, and starts on a 3 second
+  countdown. Joining after the start still takes over a bot. Player names are stripped to plain characters on both
+  ends. `npm run test:lobby` passes 10/10.
+
+## NOT PUBLISHED (2026-10-10)
+The three commits of the overhaul and the lobby are **local only**. `sh tools/publish.sh` was blocked by the session's
+permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
+(gates were clean at the time: 0 failing licences, 0 mark hits).
+
 ## Decisions
 - **Public title "Graveshift":** "Dead Ops" stays as the repo id only, because it is close to the name of a mini-game
   in the franchise.
@@ -50,7 +63,7 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
 3. MP polish: grenades for bots and the player, a death animation camera, spawn protection, footstep audio.
 
 ## MP parity backlog (owner asked 2026-10-09; next session)
-Not built yet: pre-game lobby (ready-up, team select, host controls, map vote), public matchmaking and quick play,
+Done: pre-game lobby (team select, ready-up, host remove, countdown). Not built yet: lobby chat and map vote, return to lobby after a match, public matchmaking and quick play,
 parties, host migration, ranked and leaderboards, XP/levels/unlocks/prestige, medals, class slots and attachments,
 more modes (only TDM), arenas 2 and 3, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
