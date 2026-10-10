@@ -44,13 +44,17 @@ Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/dead
   victim's team can grab it to deny. First to 50. Bots go for nearby markers, markers replicate to joiners, and the
   mode is chosen in the menu (`?mode=recovery`) and shown in the lobby. `npm run test:recovery` plays a bots-only
   match to the limit with 0 errors.
+- **Second arena, Cinder Yard (2026-10-10):** an original freight yard (`maps/yard.js`): a raised loading dock with
+  ramps to the north, a warehouse the service road runs through, and two rows of containers to the south. Chosen in
+  the menu or with `?map=yard`; a room's join link carries the arena. `npm run test:yard` plays a bots-only match
+  to 75 with 0 errors. The warehouse lighting was raised after one dark screenshot and has not been looked at since.
 - **Online hardening (2026-10-10):** a joiner's killfeed keeps only the name colour and italic tags from the host,
   and joining retries for about 15 s so PLAY AGAIN on both sides brings the room back to the lobby.
 - **Known flake:** `test:p2p` failed twice on its first page load when run straight after another suite and passed
   on rerun each time.
 
 ## NOT PUBLISHED (2026-10-10)
-Everything from 2026-10-10 (overhaul, lobby, progression, Recovery mode, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
+Everything from 2026-10-10 (overhaul, lobby, progression, Recovery mode, Cinder Yard, online hardening) is **local only**. `sh tools/publish.sh` was blocked by the session's
 permission check, so the live site is still the 2026-10-09 build. To publish, run `sh tools/publish.sh` yourself
 (gates were clean at the time: 0 failing licences, 0 mark hits).
 
@@ -77,10 +81,11 @@ permission check, so the live site is still the 2026-10-09 build. To publish, ru
 ## MP parity backlog (owner asked 2026-10-09; next session)
 Done: pre-game lobby (team select, ready-up, host remove, countdown). local XP, levels, medals and unlocks. Not built yet: lobby chat and map vote, public matchmaking and quick play,
 parties, host migration, ranked and leaderboards, prestige and challenges, class slots and attachments,
-more modes (TDM and Recovery exist), arenas 2 and 3, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
+more modes (TDM and Recovery exist), arena 3 and map rotation or vote, killcam, MP announcer, friends/stats, zombies co-op, TURN relay.
 First decision: backend (stay serverless, a small Cloudflare Worker, or a dedicated authoritative server).
 
 ## For the morning
+- **Run `sh tools/publish.sh`** (it was blocked for the unattended session), then:
 - Play zombies at the link above and TDM at `/mp.html` (also linked from the menu). Please look at feel, weapon balance and the map layout.
 - Try online: open `/mp.html`, press HOST A ROOM, and send the join link to a second device.
 - Record the announcer: script in `assets/voice_lines.csv` (19 lines).

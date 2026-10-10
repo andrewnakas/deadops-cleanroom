@@ -5,24 +5,29 @@ import { ViewModel } from './viewmodel.js';
 import { GameAudio } from './sfx.js';
 import { configureAssets, assetLog } from './runtime-assets.js';
 import { buildSuburb } from './maps/suburb.js';
+import { buildYard } from './maps/yard.js';
 import { loadAsset, instance, ClipRig } from './models.js';
 import { Gamepad } from './gamepad.js';
 import { createZombieTouch } from './zombies-touch.js';
 import { Net } from './net.js';
 import { loadProgress, saveProgress, grant, killAwards, levelOf, levelProgress, xpForLevel, unlockLevel, isUnlocked, legalPick, MEDALS, MAX_LEVEL } from './progress.js';
 
-// Team deathmatch: two teams of soldiers (you + bots) on Maple Court, first to the score limit.
+// Team modes: two teams of soldiers (you + bots) on one of the arenas, first to the score limit.
 const $=id=>document.getElementById(id),keys=new Set(),audio=new GameAudio(),pad=new Gamepad(),params=new URLSearchParams(location.search);
 const profile=configureAssets();
 const renderer=new THREE.WebGLRenderer({antialias:!profile.mobile});renderer.setPixelRatio(Math.min(devicePixelRatio,profile.mobile?1:1.5));renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;renderer.autoClear=false;document.body.prepend(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x2a3550);scene.fog=new THREE.Fog(0x2a3550,1500,4200);
+const scene=new THREE.Scene();
 scene.add(new THREE.HemisphereLight(0xc8d4f0,0x4a5a3a,2.0));const sun=new THREE.DirectionalLight(0xffc890,1.6);sun.position.set(-1,1.2,.4);scene.add(sun);
 const camera=new THREE.PerspectiveCamera(78,innerWidth/innerHeight,1,9000);camera.rotation.order='YXZ';scene.add(camera);
 const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);viewScene.add(new THREE.AmbientLight(0xd8d0c0,1.6));const vl=new THREE.DirectionalLight(0xffefc8,2.2);vl.position.set(.5,2,1);viewScene.add(vl);
 const [base,mp]=await Promise.all([fetch('data/game.json').then(r=>r.json()),fetch('data/mp.json').then(r=>r.json())]);
 const WEAPONS={};for(const id of [...mp.primaries,...mp.secondaries]){WEAPONS[id]={...base.weapons[id],...mp.weapons[id],id,upgrade:undefined};WEAPONS[id].fireType??=WEAPONS[id].automatic?'Full Auto':'Single Shot';}
-const map=buildSuburb();
+// Arena: chosen before loading (menu or ?map=); everyone in a room loads the host's arena.
+const savedMap=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.class')||'{}').map;}catch{return null;}})();
+const mapId=mp.maps[params.get('map')]?params.get('map'):params.get('join')||!mp.maps[savedMap]?'suburb':savedMap,arena=mp.maps[mapId];
+const map={suburb:buildSuburb,yard:buildYard}[mapId]();scene.background=new THREE.Color(map.sky);scene.fog=new THREE.Fog(map.sky,1500,4200);
+document.title='Graveshift: '+arena.name;
 let world,player,view,ready=false,active=false,primary=false,primaryPressed=false,ads=false,mousePrimary=false,mouseAim=false,time=0,ended=false,lastRendered=0,previous=performance.now(),fps=0,frames=0,frameTime=0;
 const botsOnly=params.get('bots')==='only',errors=[],soldiers=[],killfeed=[],fx=[],drones=[],strikes=[];
 const score=[0,0],scanUntil=[0,0];
@@ -262,7 +267,7 @@ function puppet(s,dt){
   s.tag.visible=s.team===humanTeam()||scanUntil[humanTeam()]>time&&!s.perks.has('ghostline');
   if(netRole==='host'&&time-s.lastHurt>5)s.health=Math.min(s.maxHealth,s.health+dt*40);
 }
-function snapshot(you){return {t:'snap',you,time,score,mode,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
+function snapshot(you){return {t:'snap',you,time,score,mode,map:mapId,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
   sol:soldiers.map(s=>({id:s.id,name:s.human?(loadout.name||'Host'):s.name,team:s.team,a:s.alive,h:Math.round(s.health),k:s.kills,d:s.deaths,s:s.streak,e:s.earned,p:feet(s).toArray().map(v=>Math.round(v*10)/10),y:s.human?camera.rotation.y:s.yaw,w:s.arms.def.id,f:time-s.lastFire<.2?1:0}))};}
 function hostData(conn,m){
   const s=net.conns.get(conn);
@@ -291,11 +296,11 @@ function seat(conn,name,o,want){
   bot.lastNet=performance.now();net.conns.set(conn,bot);conn.send(snapshot(bot.id));respawn(bot);toast(bot.name+' joined team '+mp.teams[bot.team].name,3);
 }
 // ---------- pre-game lobby (online rooms) ----------
-function lobbyState(){return {t:'lobby',room,mode,count:countdown,size:loadout.size,diff:loadout.difficulty,players:[{name:clean(loadout.name||'Host'),team:hostTeam,ready:true,host:true},...lobby.map(p=>({name:p.name,team:p.team,ready:p.ready}))]};}
+function lobbyState(){return {t:'lobby',room,mode,map:mapId,count:countdown,size:loadout.size,diff:loadout.difficulty,players:[{name:clean(loadout.name||'Host'),team:hostTeam,ready:true,host:true},...lobby.map(p=>({name:p.name,team:p.team,ready:p.ready}))]};}
 function sendLobby(){if(netRole!=='host'||started)return;const st=lobbyState();lobby.forEach((p,i)=>{if(p.conn.open)p.conn.send({...st,you:i+1});});drawLobby({...st,you:0});}
 function drawLobby(st){
   const me=st.players?.[st.you];if(!me)return;lastLobby=st;myReady=!!me.ready;myTeam=me.team?1:0;const el=$('lobby'),size=+st.size||0;el.hidden=false;
-  el.innerHTML=`<h4>ROOM ${clean(st.room)} · ${size} v ${size} · ${mp.modes[st.mode]?.name??''} · ${clean(st.diff)} bots fill empty slots${st.count?` · <b>STARTING IN ${+st.count}</b>`:''}</h4><div class="lobby-teams">`+[0,1].map(t=>`<div style="--c:${mp.teams[t].color}"><h5>${mp.teams[t].name}</h5>`+st.players.map((p,i)=>(p.team?1:0)!==t?'':`<p class="${i===st.you?'you':''}"><span>${clean(p.name)}${p.host?' ★':''}</span><span>${p.ready?'READY':'not ready'}</span>${st.you===0&&i>0?`<button data-kick="${i-1}" type="button" title="Remove from room">✕</button>`:'<i></i>'}</p>`).join('')+'</div>').join('')+'</div><button data-act="team" type="button">SWITCH TEAM</button>';
+  el.innerHTML=`<h4>ROOM ${clean(st.room)} · ${size} v ${size} · ${mp.modes[st.mode]?.name??''} · ${mp.maps[st.map]?.name??''} · ${clean(st.diff)} bots fill empty slots${st.count?` · <b>STARTING IN ${+st.count}</b>`:''}</h4><div class="lobby-teams">`+[0,1].map(t=>`<div style="--c:${mp.teams[t].color}"><h5>${mp.teams[t].name}</h5>`+st.players.map((p,i)=>(p.team?1:0)!==t?'':`<p class="${i===st.you?'you':''}"><span>${clean(p.name)}${p.host?' ★':''}</span><span>${p.ready?'READY':'not ready'}</span>${st.you===0&&i>0?`<button data-kick="${i-1}" type="button" title="Remove from room">✕</button>`:'<i></i>'}</p>`).join('')+'</div>').join('')+'</div><button data-act="team" type="button">SWITCH TEAM</button>';
   const ready=st.players.filter(p=>p.ready).length;
   $('start').innerHTML=(netRole==='client'?(myReady?'NOT READY':'READY UP'):st.count?`STARTING IN ${+st.count}`:st.players.length>1?`START MATCH (${ready}/${st.players.length} READY)`:'START MATCH')+' <span>→</span>';
 }
@@ -314,6 +319,7 @@ function hostClose(conn){const i=lobby.findIndex(p=>p.conn===conn);if(i>=0){lobb
 // Feed lines arrive from the host as markup: keep only the name colour and italic tags, escape the rest.
 const feedText=t=>String(t).slice(0,300).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';').replace(/&#60;b style=&#34;color:(#[0-9a-fA-F]{3,8})&#34;&#62;/g,'<b style="color:$1">').replace(/&#60;(\/?)(b|i)&#62;/g,'<$1$2>');
 function clientData(conn,m){
+  if((m.t==='lobby'||m.t==='snap')&&mp.maps[m.map]&&m.map!==mapId){location.search='?join='+room+'&map='+m.map;return;}
   if(m.t==='full'){$('menu-status').textContent='That room is full';return;}
   if(m.t==='spawn'){const h=human();if(!h)return;h.alive=true;h.health=h.maxHealth;h.arms=new Arms(h.o,h.o.perks);player.setSpawn(vector(m.pos));player.respawn();camera.rotation.set(0,m.yaw,0);view.currentId=null;view.equip(h.arms.def);$('death').hidden=true;return;}
   if(m.t==='lobby'){if(!started)drawLobby(m);return;}
@@ -343,7 +349,7 @@ async function goOnline(){
   if(netRole==='solo')return;
   net.onStatus=text=>{$('net-status').textContent=netRole==='host'?`Room ${room} · ${text}`:text;};
   try{
-    if(netRole==='host'){net.onData=hostData;net.onClose=hostClose;await net.host(room);const link=location.origin+location.pathname+'?join='+room;$('net-status').innerHTML=`Room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a>`;sendLobby();}
+    if(netRole==='host'){net.onData=hostData;net.onClose=hostClose;await net.host(room);const link=location.origin+location.pathname+'?join='+room+'&map='+mapId;$('net-status').innerHTML=`Room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a>`;sendLobby();}
     else{net.onData=clientData;$('net-status').textContent='Joining room '+room+'…';for(let n=0;;n++){try{await net.join(room);break;}catch(e){if(n>=4)throw e;$('net-status').textContent='Waiting for room '+room+'…';await new Promise(r=>setTimeout(r,3000));}}net.send({t:'hello',name:loadout.name||'Guest',o:loadout});$('net-status').textContent='Connected to room '+room;}
   }catch(e){$('net-status').textContent='Could not connect: '+(e.type??e.message);if(netRole==='host')netRole='solo';}
 }
@@ -396,17 +402,19 @@ function buildMenu(){
   mp.perks.forEach((slot,i)=>{$('cls-perk'+i).innerHTML=gated(slot.map(p=>p.id),loadout.perks[i],id=>{const p=slot.find(x=>x.id===id);return p.name+' — '+p.blurb;});});
   $('rank').textContent=rankLine();$('rank-bar').style.width=(100*levelProgress(prof.xp))+'%';
   $('cls-diff').innerHTML=opt(Object.keys(mp.difficulty),loadout.difficulty,id=>id[0].toUpperCase()+id.slice(1));
-  $('cls-size').innerHTML=opt(['2','3','4','5','6'],String(loadout.size),n=>n+' v '+n);$('cls-mode').innerHTML=opt(Object.keys(mp.modes),mode,id=>mp.modes[id].name+' — '+mp.modes[id].blurb);matchInfo();
+  $('cls-size').innerHTML=opt(['2','3','4','5','6'],String(loadout.size),n=>n+' v '+n);$('cls-map').innerHTML=opt(Object.keys(mp.maps),mapId,id=>mp.maps[id].name+' — '+mp.maps[id].blurb);$('cls-map').addEventListener('change',()=>{if(started)return;readMenu();const q=new URLSearchParams(location.search);q.set('map',$('cls-map').value);location.search='?'+q;});$('cls-map').disabled=netRole==='client';
+  $('arena-title').innerHTML=arena.name.toUpperCase().split(' ').map(clean).join('<br>')+'<span>.</span>';
+  $('cls-mode').innerHTML=opt(Object.keys(mp.modes),mode,id=>mp.modes[id].name+' — '+mp.modes[id].blurb);matchInfo();
   $('cls-name').value=saved.name??'';$('host-room').addEventListener('click',()=>{readMenu();location.search='?host='+Math.random().toString(36).slice(2,7).toUpperCase();});
   $('join-room').addEventListener('click',()=>{readMenu();const c=$('join-code').value.trim().toUpperCase();if(c)location.search='?join='+c;});
   $('streak-list').textContent=mp.streaks.map(s=>`${s.kills} kills: ${s.name}`).join(' · ');
 }
 function readMenu(){
-  loadout.name=$('cls-name').value.trim().slice(0,14);if(started){try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}return;}loadout.primary=$('cls-primary').value;loadout.secondary=$('cls-secondary').value;loadout.perks=[0,1,2].map(i=>$('cls-perk'+i).value);loadout.difficulty=$('cls-diff').value;loadout.size=+$('cls-size').value;if(netRole!=='client'&&mp.modes[$('cls-mode').value])mode=$('cls-mode').value;loadout.mode=mode;matchInfo();
+  loadout.name=$('cls-name').value.trim().slice(0,14);if(started){try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}return;}loadout.primary=$('cls-primary').value;loadout.secondary=$('cls-secondary').value;loadout.perks=[0,1,2].map(i=>$('cls-perk'+i).value);loadout.difficulty=$('cls-diff').value;loadout.size=+$('cls-size').value;if(netRole!=='client'&&mp.modes[$('cls-mode').value])mode=$('cls-mode').value;loadout.mode=mode;loadout.map=mapId;matchInfo();
   try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}
 }
 let started=false;
-function matchInfo(){$('match-info').textContent=`${rules().name} · first to ${rules().scoreLimit} · Maple Court`;}
+function matchInfo(){$('match-info').textContent=`${rules().name} · first to ${rules().scoreLimit} · ${arena.name}`;}
 function startMatch(){
   if(started)return;started=true;const names=[...mp.botNames].sort(()=>Math.random()-.5),size=loadout.size;
   if(!botsOnly)makeSoldier({name:'You',team:hostTeam,human:true});
@@ -478,12 +486,12 @@ function hud(){
     $('kd').textContent=`${h.kills} kills · ${h.deaths} deaths`;}
   board(ended);if(frames++%3===0)minimap();
 }
-const debug={getState:()=>({ready,started,ended,time,mode,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
+const debug={getState:()=>({ready,started,ended,time,mode,map:mapId,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
   step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});
 try{
-  $('load-label').textContent='Building Maple Court';world=new World(scene,base,map);await world.load((t,p)=>{$('load-label').textContent=t;$('load-progress').style.width=p+'%';},{mapName:'suburb'});world.setDoors({openDoors:new Set()});
+  $('load-label').textContent='Building '+arena.name;world=new World(scene,base,map);await world.load((t,p)=>{$('load-label').textContent=t;$('load-progress').style.width=p+'%';},{mapName:mapId});world.setDoors({openDoors:new Set()});
   player=new PlayerController(camera,world.physics,{spawn:vector(world.spawns[0].position),spawnIsEye:false,radius:14,height:70,eyeHeight:60,moveSpeed:190,sprintSpeed:285,crouchSpeed:95,gravity:800,jumpHeight:39,fallResetY:-800,maxSubSteps:12,groundSnapSpeed:10});
   view=new ViewModel(viewScene,base,audio);await Promise.all([loadTeams(),view.load(),audio.load()]);
   buildMenu();ready=true;$('loading').hidden=true;$('start').disabled=false;$('menu-status').textContent=botsOnly?'Spectating a bots-only match':pad.connected?'Press START to deploy':'Click DEPLOY · Tab shows the scoreboard';

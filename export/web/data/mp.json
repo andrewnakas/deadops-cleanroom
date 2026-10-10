@@ -1,4 +1,8 @@
 {
+  "maps": {
+    "suburb": {"name": "Maple Court", "blurb": "three lanes through a quiet cul-de-sac"},
+    "yard": {"name": "Cinder Yard", "blurb": "a freight yard: loading dock, warehouse, container rows"}
+  },
   "modes": {
     "tdm": {"name": "Team Deathmatch", "scoreLimit": 75, "blurb": "every kill scores"},
     "recovery": {"name": "Recovery", "scoreLimit": 50, "markerSeconds": 30, "blurb": "kills drop a marker; collect it to score, or grab your team's to deny"}
