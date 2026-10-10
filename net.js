@@ -1,11 +1,12 @@
 // Peer-to-peer rooms over WebRTC data channels (PeerJS cloud signalling; the page stays static).
 // The host is the authority: it runs bots, hit detection, health, score and killstreaks.
 // Clients own only their movement and send shot rays, which the host checks.
+// `ice` (optional relay servers from the backend) is added to the default STUN server for players behind strict routers.
 const PREFIX='graveshift-';
 export class Net {
-  constructor(){this.conns=new Map();this.peer=null;this.conn=null;this.status='offline';}
+  constructor(){this.conns=new Map();this.peer=null;this.conn=null;this.status='offline';this.ice=null;}
   set(status){this.status=status;this.onStatus?.(status);}
-  open(id){return new Promise((resolve,reject)=>{const p=new globalThis.Peer(id,{debug:0});p.on('open',()=>resolve(p));p.on('error',e=>{this.set('network error: '+e.type);reject(e);});});}
+  open(id){return new Promise((resolve,reject)=>{const p=new globalThis.Peer(id,{debug:0,...(this.ice?{config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},...this.ice],sdpSemantics:'unified-plan'}}:{})});p.on('open',()=>resolve(p));p.on('error',e=>{this.set('network error: '+e.type);reject(e);});});}
   async host(code){
     this.conn=null;this.peer?.destroy();this.conns.clear();this.peer=await this.open(PREFIX+code);this.set('hosting · waiting for players');
     this.peer.on('connection',c=>{c.on('open',()=>{this.conns.set(c,null);this.set(`hosting · ${this.conns.size} joined`);});c.on('data',m=>this.onData?.(c,m));
