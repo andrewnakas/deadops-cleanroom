@@ -49,11 +49,26 @@ try {
   await client.close(); await host.waitForTimeout(8000);
   const h2 = await host.evaluate(() => game.debug.soldiers.filter(s => s.remote).length);
   check('slot returns to a bot when the client leaves', h2 === 0);
-  const client3 = await mk(`http://127.0.0.1:${port}/mp.html?join=${room}`);
-  await client3.waitForFunction(() => { const s = globalThis.game?.debug.getState(); return s?.started && s.soldiers.some(x => x.human); }, null, { timeout: 60000 });
+  // host migration: two joiners, the host closes, the lower seat takes over and the other follows
+  const a = await mk(`http://127.0.0.1:${port}/mp.html?join=${room}`), b = await mk(`http://127.0.0.1:${port}/mp.html?join=${room}`);
+  for (const p of [a, b]) { await p.waitForFunction(() => { const s = globalThis.game?.debug.getState(); return s?.started && s.soldiers.some(x => x.human); }, null, { timeout: 60000 }); await p.evaluate(() => { game.debug.setActive(true); document.getElementById('menu').hidden = true; }); }
+  await a.waitForTimeout(1500);
+  const before = await Promise.all([a, b].map(p => p.evaluate(() => ({ id: game.debug.net().myId, s: game.debug.getState() }))));
   await host.close();
-  await client3.waitForFunction(() => document.getElementById('end-title').textContent.includes('HOST LEFT') && !document.getElementById('end').hidden, null, { timeout: 30000 });
-  check('a joiner is told when the host leaves mid-match', (await client3.textContent('#again')) === 'LEAVE ROOM');
+  const [heir, other] = before[0].id < before[1].id ? [a, b] : [b, a], ids = before.map(x => x.id).sort((x, y) => x - y);
+  await heir.waitForFunction(() => game.debug.net().role === 'host' && game.debug.getState().migrated, null, { timeout: 40000 });
+  await heir.waitForFunction(() => game.debug.net().peers === 1 && game.debug.soldiers.some(s => s.remote), null, { timeout: 60000 });
+  const hs = await heir.evaluate(() => ({ s: game.debug.getState(), remote: game.debug.soldiers.filter(s => s.remote).map(s => s.id) }));
+  check('the lowest seat becomes the host', hs.s.room.endsWith('M' + ids[0]) && !hs.s.ended && hs.s.soldiers.length === 6, hs.s.room);
+  check('the other joiner gets its own seat back', hs.remote.length === 1 && hs.remote[0] === ids[1], JSON.stringify(hs.remote));
+  check('the score carries over', hs.s.score[0] >= before[0].s.score[0] && hs.s.score[1] >= before[0].s.score[1], hs.s.score.join('-'));
+  const t0 = (await other.evaluate(() => game.debug.getState())).time; await other.waitForTimeout(2500);
+  const os = await other.evaluate(() => ({ s: game.debug.getState(), net: game.debug.net() }));
+  check('the match keeps running for the other joiner', os.s.time > t0 + 1 && !os.s.ended && os.net.role === 'client' && os.net.myId === ids[1], `${Math.round(t0)} -> ${Math.round(os.s.time)}`);
+  for (let i = 0; i < 400; i++) { if (await heir.evaluate(() => { if (!game.debug.getState().ended) game.debug.step(3); return game.debug.getState().ended; })) break; await heir.waitForTimeout(30); }
+  await other.waitForFunction(() => game.debug.getState().ended && !document.getElementById('end').hidden, null, { timeout: 20000 });
+  const fin = await heir.evaluate(() => game.debug.getState());
+  check('the migrated match plays to the end for both', fin.ended && Math.max(...fin.score) > 20 && (await other.textContent('#end-title')) !== 'THE HOST LEFT THE MATCH', fin.score.join('-'));
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   console.log('PASS p2p');
 } catch (e) { console.error('FAIL', e.message, errors.slice(0, 5)); process.exitCode = 1; }

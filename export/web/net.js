@@ -7,7 +7,7 @@ export class Net {
   set(status){this.status=status;this.onStatus?.(status);}
   open(id){return new Promise((resolve,reject)=>{const p=new globalThis.Peer(id,{debug:0});p.on('open',()=>resolve(p));p.on('error',e=>{this.set('network error: '+e.type);reject(e);});});}
   async host(code){
-    this.peer=await this.open(PREFIX+code);this.set('hosting · waiting for players');
+    this.conn=null;this.peer?.destroy();this.conns.clear();this.peer=await this.open(PREFIX+code);this.set('hosting · waiting for players');
     this.peer.on('connection',c=>{c.on('open',()=>{this.conns.set(c,null);this.set(`hosting · ${this.conns.size} joined`);});c.on('data',m=>this.onData?.(c,m));
       c.on('close',()=>{this.onClose?.(c);this.conns.delete(c);this.set(`hosting · ${this.conns.size} joined`);});});
   }
