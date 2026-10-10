@@ -25,6 +25,7 @@ const map=buildSuburb();
 let world,player,view,ready=false,active=false,primary=false,primaryPressed=false,ads=false,mousePrimary=false,mouseAim=false,time=0,ended=false,lastRendered=0,previous=performance.now(),fps=0,frames=0,frameTime=0;
 const botsOnly=params.get('bots')==='only',errors=[],soldiers=[],killfeed=[],fx=[],drones=[],strikes=[];
 const score=[0,0],scanUntil=[0,0];
+const lobby=[],clean=n=>String(n??'').replace(/[^\w .\-]/g,'').slice(0,14)||'Guest';let hostTeam=0,countdown=0,myReady=false,myTeam=0,lastLobby=null;
 const net=new Net(),room=(params.get('join')??params.get('host')??'').toUpperCase().replace(/[^A-Z0-9]/g,''),evts=[];
 let netRole=params.get('join')?'client':params.get('host')?'host':'solo',snapT=0,sendT=0,myId=-1;
 addEventListener('error',e=>errors.push(e.message));addEventListener('unhandledrejection',e=>errors.push(String(e.reason)));
@@ -232,13 +233,14 @@ function snapshot(you){return {t:'snap',you,time,score,scan:scanUntil,ended,ev:e
 function hostData(conn,m){
   const s=net.conns.get(conn);
   if(m.t==='hello'){
-    if(!started)startMatch();
-    const count=t=>soldiers.filter(x=>x.team===t&&(x.human||x.remote)).length,team=count(1)<count(0)?1:0,bot=soldiers.find(x=>x.team===team&&!x.human&&!x.remote)??soldiers.find(x=>!x.human&&!x.remote);
-    if(!bot){conn.send({t:'full'});return;}
-    const o={primary:mp.primaries.includes(m.o?.primary)?m.o.primary:'halvard',secondary:mp.secondaries.includes(m.o?.secondary)?m.o.secondary:'warden',perks:(m.o?.perks??[]).filter(id=>mp.perks.flat().some(p=>p.id===id)).slice(0,3)};
-    Object.assign(bot,{remote:conn,name:String(m.name||'Guest').slice(0,14),o,perks:new Set(o.perks),maxHealth:o.perks.includes('thickskin')?125:100,streak:0,earned:[],target:null});
-    bot.lastNet=performance.now();net.conns.set(conn,bot);conn.send(snapshot(bot.id));respawn(bot);toast(bot.name+' joined team '+mp.teams[bot.team].name,3);return;
+    const o={primary:mp.primaries.includes(m.o?.primary)?m.o.primary:'halvard',secondary:mp.secondaries.includes(m.o?.secondary)?m.o.secondary:'warden',perks:(m.o?.perks??[]).filter(id=>mp.perks.flat().some(p=>p.id===id)).slice(0,3)},name=clean(m.name);
+    if(started){seat(conn,name,o);return;}
+    if(lobby.some(p=>p.conn===conn))return;
+    if(lobby.length>=loadout.size*2-1){conn.send({t:'full'});return;}
+    const n=t=>lobby.filter(p=>p.team===t).length+(hostTeam===t?1:0);lobby.push({conn,name,o,team:n(1)<n(0)?1:0,ready:false});sendLobby();return;
   }
+  const member=lobby.find(p=>p.conn===conn);
+  if(member){if(m.t==='ready')member.ready=!!m.v;if(m.t==='team')member.team=m.v?1:0;if(m.t==='bye'){lobby.splice(lobby.indexOf(member),1);}sendLobby();return;}
   if(!s)return;
   s.lastNet=performance.now();
   if(m.t==='bye'){dropPeer(conn);return;}
@@ -247,19 +249,47 @@ function hostData(conn,m){
     const o=vector(m.o),mine=eye(s);fireShot(s,vector(m.d).normalize(),o.distanceTo(mine)<160?o:mine);}
   if(m.t==='streak'&&s.alive&&s.earned.length)useStreak(s,s.earned.shift());
 }
+// Put a joining player in a bot's slot, on the team they asked for when it has room.
+function seat(conn,name,o,want){
+  const count=t=>soldiers.filter(x=>x.team===t&&(x.human||x.remote)).length,team=want??(count(1)<count(0)?1:0),bot=soldiers.find(x=>x.team===team&&!x.human&&!x.remote)??soldiers.find(x=>!x.human&&!x.remote);
+  if(!bot){conn.send({t:'full'});return;}
+  Object.assign(bot,{remote:conn,name,o,perks:new Set(o.perks),maxHealth:o.perks.includes('thickskin')?125:100,streak:0,earned:[],target:null});
+  bot.lastNet=performance.now();net.conns.set(conn,bot);conn.send(snapshot(bot.id));respawn(bot);toast(bot.name+' joined team '+mp.teams[bot.team].name,3);
+}
+// ---------- pre-game lobby (online rooms) ----------
+function lobbyState(){return {t:'lobby',room,count:countdown,size:loadout.size,diff:loadout.difficulty,players:[{name:clean(loadout.name||'Host'),team:hostTeam,ready:true,host:true},...lobby.map(p=>({name:p.name,team:p.team,ready:p.ready}))]};}
+function sendLobby(){if(netRole!=='host'||started)return;const st=lobbyState();lobby.forEach((p,i)=>{if(p.conn.open)p.conn.send({...st,you:i+1});});drawLobby({...st,you:0});}
+function drawLobby(st){
+  const me=st.players?.[st.you];if(!me)return;lastLobby=st;myReady=!!me.ready;myTeam=me.team?1:0;const el=$('lobby'),size=+st.size||0;el.hidden=false;
+  el.innerHTML=`<h4>ROOM ${clean(st.room)} · ${size} v ${size} · ${clean(st.diff)} bots fill empty slots${st.count?` · <b>STARTING IN ${+st.count}</b>`:''}</h4><div class="lobby-teams">`+[0,1].map(t=>`<div style="--c:${mp.teams[t].color}"><h5>${mp.teams[t].name}</h5>`+st.players.map((p,i)=>(p.team?1:0)!==t?'':`<p class="${i===st.you?'you':''}"><span>${clean(p.name)}${p.host?' ★':''}</span><span>${p.ready?'READY':'not ready'}</span>${st.you===0&&i>0?`<button data-kick="${i-1}" type="button" title="Remove from room">✕</button>`:'<i></i>'}</p>`).join('')+'</div>').join('')+'</div><button data-act="team" type="button">SWITCH TEAM</button>';
+  const ready=st.players.filter(p=>p.ready).length;
+  $('start').innerHTML=(netRole==='client'?(myReady?'NOT READY':'READY UP'):st.count?`STARTING IN ${+st.count}`:st.players.length>1?`START MATCH (${ready}/${st.players.length} READY)`:'START MATCH')+' <span>→</span>';
+}
+function lobbyClick(e){
+  const b=e.target.closest('button');if(!b||started||countdown)return;
+  if(b.dataset.act==='team'){if(netRole==='host'){hostTeam=1-hostTeam;sendLobby();}else net.send({t:'team',v:1-myTeam});}
+  if(b.dataset.kick!==undefined&&netRole==='host'){const p=lobby[+b.dataset.kick];if(!p)return;lobby.splice(lobby.indexOf(p),1);try{p.conn.send({t:'kicked'});}catch{}setTimeout(()=>{try{p.conn.close();}catch{}},300);sendLobby();}
+}
+function beginCountdown(){
+  countdown=3;sendLobby();
+  const tick=setInterval(()=>{if(started){clearInterval(tick);countdown=0;return;}countdown--;if(countdown>0){sendLobby();return;}clearInterval(tick);startMatch();closeLobby();},1000);
+}
+function closeLobby(){if($('lobby').hidden)return;$('lobby').hidden=true;$('start').innerHTML='DEPLOY <span>→</span>';$('menu-status').textContent='Match is live · click DEPLOY';}
 function dropPeer(conn){hostClose(conn);net.conns.delete(conn);try{conn.close();}catch{}}
-function hostClose(conn){const s=net.conns.get(conn);if(s){s.remote=null;s.netPos=null;toast(s.name+' left',3);s.name+=' (bot)';}}
+function hostClose(conn){const i=lobby.findIndex(p=>p.conn===conn);if(i>=0){lobby.splice(i,1);sendLobby();}const s=net.conns.get(conn);if(s){s.remote=null;s.netPos=null;toast(s.name+' left',3);s.name+=' (bot)';}}
 function clientData(conn,m){
   if(m.t==='full'){$('menu-status').textContent='That room is full';return;}
   if(m.t==='spawn'){const h=human();if(!h)return;h.alive=true;h.health=h.maxHealth;h.arms=new Arms(h.o,h.o.perks);player.setSpawn(vector(m.pos));player.respawn();camera.rotation.set(0,m.yaw,0);view.currentId=null;view.equip(h.arms.def);$('death').hidden=true;return;}
+  if(m.t==='lobby'){if(!started)drawLobby(m);return;}
+  if(m.t==='kicked'){$('lobby').hidden=true;$('start').disabled=true;$('menu-status').textContent='The host removed you from the room';return;}
   if(m.t!=='snap')return;
-  myId=m.you;time=m.time;score[0]=m.score[0];score[1]=m.score[1];scanUntil[0]=m.scan[0];scanUntil[1]=m.scan[1];
+  closeLobby();myId=m.you;time=m.time;score[0]=m.score[0];score[1]=m.score[1];scanUntil[0]=m.scan[0];scanUntil[1]=m.scan[1];
   for(const d of m.sol){
     let s=soldiers[d.id];
-    if(!s){s=makeSoldier({name:d.name,team:d.team,human:d.id===myId,o:d.id===myId?loadout:{primary:mp.primaries.includes(d.w)?d.w:'halvard',secondary:'warden',perks:[]}});started=true;}
+    if(!s){s=makeSoldier({name:clean(d.name),team:d.team?1:0,human:d.id===myId,o:d.id===myId?loadout:{primary:mp.primaries.includes(d.w)?d.w:'halvard',secondary:'warden',perks:[]}});started=true;}
     const was=s.alive;s.kills=d.k;s.deaths=d.d;s.streak=d.s;
     if(s.human){if(d.h<s.health-.5&&d.a)audio.play('hurt');s.health=d.h;s.earned=d.e;if(was&&!d.a){s.alive=false;$('death').hidden=false;$('death').textContent='You died · respawning…';}}
-    else{s.name=d.name;s.netPos=(s.netPos??new THREE.Vector3()).fromArray(d.p);s.yaw=d.y;s.health=d.h;if(d.f)s.lastFire=time;
+    else{s.name=clean(d.name);s.netPos=(s.netPos??new THREE.Vector3()).fromArray(d.p);s.yaw=d.y;s.health=d.h;if(d.f)s.lastFire=time;
       if(!was&&d.a){s.pos.copy(s.netPos);s.root.visible=true;s.rig.play('idle',true,1,0);}
       if(was&&!d.a){s.rig.play('death',false,1,.1);setTimeout(()=>{if(!s.alive)s.root.visible=false;},2200);}s.alive=d.a;}
   }
@@ -275,7 +305,7 @@ async function goOnline(){
   if(netRole==='solo')return;
   net.onStatus=text=>{$('net-status').textContent=netRole==='host'?`Room ${room} · ${text}`:text;};
   try{
-    if(netRole==='host'){net.onData=hostData;net.onClose=hostClose;await net.host(room);const link=location.origin+location.pathname+'?join='+room;$('net-status').innerHTML=`Room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a>`;if(!started)startMatch();}
+    if(netRole==='host'){net.onData=hostData;net.onClose=hostClose;await net.host(room);const link=location.origin+location.pathname+'?join='+room;$('net-status').innerHTML=`Room <b>${room}</b> · share <a href="${link}" style="color:#e0b060">${link}</a>`;sendLobby();}
     else{net.onData=clientData;$('net-status').textContent='Joining room '+room+'…';await net.join(room);net.send({t:'hello',name:loadout.name||'Guest',o:loadout});$('net-status').textContent='Connected to room '+room;}
   }catch(e){$('net-status').textContent='Could not connect: '+(e.type??e.message);if(netRole==='host')netRole='solo';}
 }
@@ -303,7 +333,9 @@ function minimap(){
 const touch=createZombieTouch({onLook:(x,y,s)=>{if(!active)return;camera.rotation.y-=x*.005*s;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-y*.005*s,-1.5,1.5);},
   onAction:a=>{if(!active)return;if(a==='reload')reloadHuman();if(a==='weapon')swapHuman();if(a==='claymore'||a==='equipment')streakHuman();},onPause:()=>setActive(false)});
 function setActive(v){active=!!v&&ready&&!ended;$('menu').hidden=active||ended;document.body.classList.toggle('menu-open',!active);keys.clear();primary=ads=mousePrimary=mouseAim=false;touch.reset();touch.setEnabled(active,active);if(active)audio.start();else audio.pause();}
-function deploy(){if(!ready)return;readMenu();if(netRole==='client'&&!started){$('menu-status').textContent='Waiting for the host…';return;}if(!started)startMatch();audio.start();if(touch.mode||pad.connected||botsOnly){setActive(true);return;}renderer.domElement.requestPointerLock?.()?.catch?.(()=>{});}
+function deploy(){if(!ready)return;readMenu();if(netRole==='client'&&!started){if(net.conn?.open)net.send({t:'ready',v:!myReady});else $('menu-status').textContent='Waiting for the host…';return;}
+  if(netRole==='host'&&!started){if(countdown)return;if(lobby.length){beginCountdown();return;}startMatch();closeLobby();}
+  if(!started)startMatch();audio.start();if(touch.mode||pad.connected||botsOnly){setActive(true);return;}renderer.domElement.requestPointerLock?.()?.catch?.(()=>{});}
 document.addEventListener('pointerlockchange',()=>{if(touch.mode||pad.connected||botsOnly)return;setActive(document.pointerLockElement===renderer.domElement);});
 addEventListener('mousemove',e=>{if(!active||document.pointerLockElement!==renderer.domElement)return;const k=ads?.0012:.002;camera.rotation.y-=e.movementX*k;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-e.movementY*k,-1.5,1.5);});
 addEventListener('mousedown',e=>{if(!active)return;if(e.button===0){mousePrimary=true;primaryPressed=true;}if(e.button===2)mouseAim=true;});
@@ -333,11 +365,12 @@ function readMenu(){
 }
 let started=false;
 function startMatch(){
-  started=true;const names=[...mp.botNames].sort(()=>Math.random()-.5),size=loadout.size;
-  if(!botsOnly)makeSoldier({name:'You',team:0,human:true});
+  if(started)return;started=true;const names=[...mp.botNames].sort(()=>Math.random()-.5),size=loadout.size;
+  if(!botsOnly)makeSoldier({name:'You',team:hostTeam,human:true});
   for(let t=0;t<2;t++)for(let i=soldiers.filter(s=>s.team===t).length;i<size;i++){const perks=mp.perks.map(slot=>slot[Math.floor(Math.random()*slot.length)].id);
     makeSoldier({name:names.pop(),team:t,o:{primary:mp.primaries[Math.floor(Math.random()*mp.primaries.length)],secondary:'warden',perks,difficulty:loadout.difficulty}});}
   for(const s of soldiers)respawn(s);
+  for(const p of lobby.splice(0))if(p.conn.open)seat(p.conn,p.name,p.o,p.team);
   $('match-info').textContent=`${mp.mode} · first to ${mp.scoreLimit} · Maple Court`;
 }
 // ---------- frame ----------
@@ -402,7 +435,7 @@ function hud(){
   board(ended);if(frames++%3===0)minimap();
 }
 const debug={getState:()=>({ready,started,ended,time,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
-  step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
+  step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});
 try{
@@ -414,6 +447,7 @@ try{
   loadout.name=saved.name??'';await goOnline();
 }catch(e){console.error(e);errors.push(String(e));$('load-label').textContent='Unable to start: '+e.message;}
 $('start').addEventListener('click',deploy);renderer.domElement.addEventListener('click',()=>{if(!active&&started&&!ended)deploy();});$('again').addEventListener('click',()=>location.reload());
+$('lobby').addEventListener('click',lobbyClick);for(const id of ['cls-size','cls-diff','cls-name'])$(id).addEventListener('change',()=>{if(netRole==='host'&&!started){readMenu();sendLobby();}});
 renderer.info.autoReset=false;
 function renderFrame(now){
   if(document.hidden)return;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;if(frameTime>.75){fps=Math.round((renderer.info.render.frame||0));frameTime=0;}
