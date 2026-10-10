@@ -45,6 +45,21 @@ function rankLine(){
   const l=levelOf(prof.xp),next=Object.entries(mp.unlocks).filter(([,v])=>v>l).sort((a,b)=>a[1]-b[1])[0],label=id=>WEAPONS[id]?.name??perkName(id);
   return `LEVEL ${l}${l>=MAX_LEVEL?' (MAX)':` · ${prof.xp-xpForLevel(l)} / ${xpForLevel(l+1)-xpForLevel(l)} XP`} · ${prof.kills} kills · ${prof.wins}/${prof.matches} wins${next?` · next unlock: ${label(next[0])} at level ${next[1]}`:''}`;
 }
+// Game mode: team deathmatch scores on kills; recovery scores on collecting the marker a kill drops.
+let mode=mp.modes[params.get('mode')]?params.get('mode'):mp.modes[saved.mode]?saved.mode:'tdm';const rules=()=>mp.modes[mode],tags=[];let tagSeq=0;
+function tagMesh(team){const m=new THREE.Mesh(new THREE.OctahedronGeometry(11),new THREE.MeshBasicMaterial({color:mp.teams[team].color}));scene.add(m);return m;}
+function dropTag(o){const p=feet(o).clone();p.y+=26;const t={id:tagSeq++,team:o.team,pos:p,until:time+rules().markerSeconds,mesh:tagMesh(o.team)};t.mesh.position.copy(p);tags.push(t);}
+function removeTag(t){t.mesh.removeFromParent();t.mesh.geometry.dispose();t.mesh.material.dispose();tags.splice(tags.indexOf(t),1);}
+function updateTags(dt,sim){
+  for(const t of [...tags]){t.mesh.rotation.y+=dt*3;t.mesh.position.y=t.pos.y+Math.sin(time*4+t.id)*4;if(!sim||ended)continue;
+    if(time>=t.until){removeTag(t);continue;}
+    const s=soldiers.find(x=>x.alive&&Math.hypot(feet(x).x-t.pos.x,feet(x).z-t.pos.z)<42&&Math.abs(feet(x).y+26-t.pos.y)<70);if(!s)continue;
+    const scored=s.team!==t.team;if(scored)score[s.team]++;removeTag(t);
+    if(s.human){award([scored?'collect':'deny']);audio.play('powerup_spawn',.5);}
+    killfeed.unshift({t:time,text:`<b style="color:${mp.teams[s.team].color}">${s.name}</b> <i>${scored?'collected a marker':'denied a marker'}</i>`});killfeed.length=Math.min(killfeed.length,6);
+    if(!ended&&score[s.team]>=rules().scoreLimit)endMatch();}
+}
+const nearestTag=(p,far)=>{let best=null,bd=far;for(const t of tags){const d=t.pos.distanceTo(p);if(d<bd){bd=d;best=t;}}return best;};
 const perkName=id=>mp.perks.flat().find(p=>p.id===id)?.name??id;
 const eyeH=58,up=new THREE.Vector3(0,1,0);
 
@@ -133,7 +148,7 @@ function kill(o,by,weapon,head){
   if(!o.human){o.rig.play('death',false,1,.1);setTimeout(()=>{if(!o.alive)o.root.visible=false;},2200);}
   else{lastKiller=by&&by!==o?by:null;prof.deaths++;deathCam=by&&by!==o?by:null;$('death').hidden=false;$('death').textContent=(by&&by!==o?'Killed by '+by.name:'You died')+' · respawning…';}
   if(by&&by!==o&&by.team!==o.team){
-    by.kills++;by.streak++;score[by.team]++;
+    by.kills++;by.streak++;if(mode==='tdm')score[by.team]++;else dropTag(o);
     if(by.human){chainN=time-lastKillT<4?chainN+1:1;lastKillT=time;const gun=!mp.streaks.some(st=>st.name===weapon);
       award(killAwards({head,distance:gun?feet(o).distanceTo(feet(by)):0,chain:chainN,payback:o===lastKiller,opening:!opened}));if(o===lastKiller)lastKiller=null;}
     opened=true;if(by.perks.has('scavenger'))by.arms.refill();
@@ -141,7 +156,7 @@ function kill(o,by,weapon,head){
     if(!by.human&&!by.remote)while(by.earned.length)useStreak(by,by.earned.shift());
   }else if(by===o)score[o.team===0?1:0]+=0;
   killfeed.unshift({t:time,text:`<b style="color:${mp.teams[by?.team??o.team].color}">${by?.name??'World'}</b> <i>${weapon}${head?' ✦':''}</i> <b style="color:${mp.teams[o.team].color}">${o.name}</b>`});killfeed.length=Math.min(killfeed.length,6);
-  if(!ended&&(score[0]>=mp.scoreLimit||score[1]>=mp.scoreLimit))endMatch();
+  if(!ended&&(score[0]>=rules().scoreLimit||score[1]>=rules().scoreLimit))endMatch();
 }
 // ---------- killstreaks ----------
 function useStreak(s,id){
@@ -215,7 +230,9 @@ function botThink(s,dt){
   }else{
     s.fighting=false;if(arms.state.mag<arms.def.clipSize*.4)arms.reload();
     let known=null;for(const [id,k] of s.know){if(time-k.t>7){s.know.delete(id);continue;}if(!known||k.t>known.t)known=k;}
-    if(known&&(s.repath<=0||!s.path.length)){s.path=world.path(me,known.pos);s.pathIndex=1;s.repath=1;}
+    const marker=tags.length?nearestTag(me,900):null;
+    if(marker){if(s.repath<=0||s.pathIndex>=s.path.length){s.path=world.path(me,marker.pos.clone().setY(marker.pos.y-26));s.pathIndex=1;s.repath=.8;}}
+    else if(known&&(s.repath<=0||!s.path.length)){s.path=world.path(me,known.pos);s.pathIndex=1;s.repath=1;}
     else if(!known&&(s.repath<=0||s.pathIndex>=s.path.length)){
       const lane=world.waypoints.filter(w=>w.lane===s.lane).sort((a,b)=>a.index-b.index);let wp=lane[s.wp];
       if(!wp||vector(wp.position).distanceTo(me)<80){s.wp+=s.dir;if(s.wp<0||s.wp>=lane.length){s.dir*=-1;s.wp+=2*s.dir;if(Math.random()<.4)s.lane=['north','mid','south'][Math.floor(Math.random()*3)];}wp=lane[THREE.MathUtils.clamp(s.wp,0,lane.length-1)];}
@@ -245,7 +262,7 @@ function puppet(s,dt){
   s.tag.visible=s.team===humanTeam()||scanUntil[humanTeam()]>time&&!s.perks.has('ghostline');
   if(netRole==='host'&&time-s.lastHurt>5)s.health=Math.min(s.maxHealth,s.health+dt*40);
 }
-function snapshot(you){return {t:'snap',you,time,score,scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
+function snapshot(you){return {t:'snap',you,time,score,mode,tags:tags.map(t=>[t.id,t.team,...t.pos.toArray().map(Math.round)]),scan:scanUntil,ended,ev:evts,feed:killfeed.map(k=>[k.t,k.text]),
   sol:soldiers.map(s=>({id:s.id,name:s.human?(loadout.name||'Host'):s.name,team:s.team,a:s.alive,h:Math.round(s.health),k:s.kills,d:s.deaths,s:s.streak,e:s.earned,p:feet(s).toArray().map(v=>Math.round(v*10)/10),y:s.human?camera.rotation.y:s.yaw,w:s.arms.def.id,f:time-s.lastFire<.2?1:0}))};}
 function hostData(conn,m){
   const s=net.conns.get(conn);
@@ -274,11 +291,11 @@ function seat(conn,name,o,want){
   bot.lastNet=performance.now();net.conns.set(conn,bot);conn.send(snapshot(bot.id));respawn(bot);toast(bot.name+' joined team '+mp.teams[bot.team].name,3);
 }
 // ---------- pre-game lobby (online rooms) ----------
-function lobbyState(){return {t:'lobby',room,count:countdown,size:loadout.size,diff:loadout.difficulty,players:[{name:clean(loadout.name||'Host'),team:hostTeam,ready:true,host:true},...lobby.map(p=>({name:p.name,team:p.team,ready:p.ready}))]};}
+function lobbyState(){return {t:'lobby',room,mode,count:countdown,size:loadout.size,diff:loadout.difficulty,players:[{name:clean(loadout.name||'Host'),team:hostTeam,ready:true,host:true},...lobby.map(p=>({name:p.name,team:p.team,ready:p.ready}))]};}
 function sendLobby(){if(netRole!=='host'||started)return;const st=lobbyState();lobby.forEach((p,i)=>{if(p.conn.open)p.conn.send({...st,you:i+1});});drawLobby({...st,you:0});}
 function drawLobby(st){
   const me=st.players?.[st.you];if(!me)return;lastLobby=st;myReady=!!me.ready;myTeam=me.team?1:0;const el=$('lobby'),size=+st.size||0;el.hidden=false;
-  el.innerHTML=`<h4>ROOM ${clean(st.room)} · ${size} v ${size} · ${clean(st.diff)} bots fill empty slots${st.count?` · <b>STARTING IN ${+st.count}</b>`:''}</h4><div class="lobby-teams">`+[0,1].map(t=>`<div style="--c:${mp.teams[t].color}"><h5>${mp.teams[t].name}</h5>`+st.players.map((p,i)=>(p.team?1:0)!==t?'':`<p class="${i===st.you?'you':''}"><span>${clean(p.name)}${p.host?' ★':''}</span><span>${p.ready?'READY':'not ready'}</span>${st.you===0&&i>0?`<button data-kick="${i-1}" type="button" title="Remove from room">✕</button>`:'<i></i>'}</p>`).join('')+'</div>').join('')+'</div><button data-act="team" type="button">SWITCH TEAM</button>';
+  el.innerHTML=`<h4>ROOM ${clean(st.room)} · ${size} v ${size} · ${mp.modes[st.mode]?.name??''} · ${clean(st.diff)} bots fill empty slots${st.count?` · <b>STARTING IN ${+st.count}</b>`:''}</h4><div class="lobby-teams">`+[0,1].map(t=>`<div style="--c:${mp.teams[t].color}"><h5>${mp.teams[t].name}</h5>`+st.players.map((p,i)=>(p.team?1:0)!==t?'':`<p class="${i===st.you?'you':''}"><span>${clean(p.name)}${p.host?' ★':''}</span><span>${p.ready?'READY':'not ready'}</span>${st.you===0&&i>0?`<button data-kick="${i-1}" type="button" title="Remove from room">✕</button>`:'<i></i>'}</p>`).join('')+'</div>').join('')+'</div><button data-act="team" type="button">SWITCH TEAM</button>';
   const ready=st.players.filter(p=>p.ready).length;
   $('start').innerHTML=(netRole==='client'?(myReady?'NOT READY':'READY UP'):st.count?`STARTING IN ${+st.count}`:st.players.length>1?`START MATCH (${ready}/${st.players.length} READY)`:'START MATCH')+' <span>→</span>';
 }
@@ -302,7 +319,9 @@ function clientData(conn,m){
   if(m.t==='lobby'){if(!started)drawLobby(m);return;}
   if(m.t==='kicked'){$('lobby').hidden=true;$('start').disabled=true;$('menu-status').textContent='The host removed you from the room';return;}
   if(m.t!=='snap')return;
-  closeLobby();myId=m.you;time=m.time;score[0]=m.score[0];score[1]=m.score[1];scanUntil[0]=m.scan[0];scanUntil[1]=m.scan[1];
+  closeLobby();myId=m.you;if(mp.modes[m.mode]&&m.mode!==mode){mode=m.mode;matchInfo();}
+  if(Array.isArray(m.tags)){const live=new Set(m.tags.map(a=>a[0]));for(const t of [...tags])if(!live.has(t.id))removeTag(t);
+    for(const a of m.tags.slice(0,40))if(!tags.some(t=>t.id===a[0])){const team=a[1]?1:0,t={id:a[0],team,pos:new THREE.Vector3(+a[2]||0,+a[3]||0,+a[4]||0),until:Infinity,mesh:tagMesh(team)};t.mesh.position.copy(t.pos);tags.push(t);}}time=m.time;score[0]=m.score[0];score[1]=m.score[1];scanUntil[0]=m.scan[0];scanUntil[1]=m.scan[1];
   for(const d of m.sol){
     let s=soldiers[d.id];
     if(!s){s=makeSoldier({name:clean(d.name),team:d.team?1:0,human:d.id===myId,o:d.id===myId?loadout:{primary:mp.primaries.includes(d.w)?d.w:'halvard',secondary:'warden',perks:[]}});started=true;}
@@ -377,16 +396,17 @@ function buildMenu(){
   mp.perks.forEach((slot,i)=>{$('cls-perk'+i).innerHTML=gated(slot.map(p=>p.id),loadout.perks[i],id=>{const p=slot.find(x=>x.id===id);return p.name+' — '+p.blurb;});});
   $('rank').textContent=rankLine();$('rank-bar').style.width=(100*levelProgress(prof.xp))+'%';
   $('cls-diff').innerHTML=opt(Object.keys(mp.difficulty),loadout.difficulty,id=>id[0].toUpperCase()+id.slice(1));
-  $('cls-size').innerHTML=opt(['2','3','4','5','6'],String(loadout.size),n=>n+' v '+n);
+  $('cls-size').innerHTML=opt(['2','3','4','5','6'],String(loadout.size),n=>n+' v '+n);$('cls-mode').innerHTML=opt(Object.keys(mp.modes),mode,id=>mp.modes[id].name+' — '+mp.modes[id].blurb);matchInfo();
   $('cls-name').value=saved.name??'';$('host-room').addEventListener('click',()=>{readMenu();location.search='?host='+Math.random().toString(36).slice(2,7).toUpperCase();});
   $('join-room').addEventListener('click',()=>{readMenu();const c=$('join-code').value.trim().toUpperCase();if(c)location.search='?join='+c;});
   $('streak-list').textContent=mp.streaks.map(s=>`${s.kills} kills: ${s.name}`).join(' · ');
 }
 function readMenu(){
-  loadout.name=$('cls-name').value.trim().slice(0,14);if(started){try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}return;}loadout.primary=$('cls-primary').value;loadout.secondary=$('cls-secondary').value;loadout.perks=[0,1,2].map(i=>$('cls-perk'+i).value);loadout.difficulty=$('cls-diff').value;loadout.size=+$('cls-size').value;
+  loadout.name=$('cls-name').value.trim().slice(0,14);if(started){try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}return;}loadout.primary=$('cls-primary').value;loadout.secondary=$('cls-secondary').value;loadout.perks=[0,1,2].map(i=>$('cls-perk'+i).value);loadout.difficulty=$('cls-diff').value;loadout.size=+$('cls-size').value;if(netRole!=='client'&&mp.modes[$('cls-mode').value])mode=$('cls-mode').value;loadout.mode=mode;matchInfo();
   try{localStorage.setItem('graveshift.class',JSON.stringify(loadout));}catch{}
 }
 let started=false;
+function matchInfo(){$('match-info').textContent=`${rules().name} · first to ${rules().scoreLimit} · Maple Court`;}
 function startMatch(){
   if(started)return;started=true;const names=[...mp.botNames].sort(()=>Math.random()-.5),size=loadout.size;
   if(!botsOnly)makeSoldier({name:'You',team:hostTeam,human:true});
@@ -394,7 +414,7 @@ function startMatch(){
     makeSoldier({name:names.pop(),team:t,o:{primary:mp.primaries[Math.floor(Math.random()*mp.primaries.length)],secondary:'warden',perks,difficulty:loadout.difficulty}});}
   for(const s of soldiers)respawn(s);
   for(const p of lobby.splice(0))if(p.conn.open)seat(p.conn,p.name,p.o,p.team);
-  $('match-info').textContent=`${mp.mode} · first to ${mp.scoreLimit} · Maple Court`;
+  matchInfo();
 }
 // ---------- frame ----------
 function update(dt){
@@ -432,6 +452,7 @@ function update(dt){
       if(!s.alive){if(sim&&!ended&&time>=s.respawnAt){respawn(s);if(s.human)$('death').hidden=true;}if(!s.human)s.rig.update(dt);continue;}
       if(!s.human){if(s.remote||!sim)puppet(s,dt);else botThink(s,dt);s.rig.update(dt);}
     }
+    updateTags(dt,sim);
     for(const k of [...strikes])if(time>=k.at){strikes.splice(strikes.indexOf(k),1);explode(k.pos,260,170,k.owner,'Airstrike');}
     for(const d of [...drones]){d.life-=dt;d.repath-=dt;const p=d.mesh.position;
       const foe=enemiesOf(d.owner).sort((a,b)=>feet(a).distanceTo(p)-feet(b).distanceTo(p))[0];
@@ -457,7 +478,7 @@ function hud(){
     $('kd').textContent=`${h.kills} kills · ${h.deaths} deaths`;}
   board(ended);if(frames++%3===0)minimap();
 }
-const debug={getState:()=>({ready,started,ended,time,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
+const debug={getState:()=>({ready,started,ended,time,mode,tags:tags.length,score:[...score],active,soldiers:soldiers.map(s=>({name:s.name,team:s.team,human:s.human,alive:s.alive,kills:s.kills,deaths:s.deaths,health:s.health,pos:feet(s).toArray(),weapon:s.arms.def.id,target:s.target?.name??null})),fps,errors:[...errors]}),
   step:seconds=>{for(let t=0;t<seconds;t+=1/30)update(Math.min(1/30,seconds-t));},start:()=>{if(!started)startMatch();active=true;},setActive,assetLog,scan:team=>{scanUntil[team]=time+30;},camera,soldiers,THREE,lobby:()=>lastLobby,progress:()=>({...prof,level:levelOf(prof.xp),match:matchAwards}),net:()=>({role:netRole,status:net.status,peers:net.conns.size,myId}),fire:()=>{mousePrimary=true;primaryPressed=true;setTimeout(()=>{mousePrimary=false;},60);}};
 globalThis.game={debug};
 addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});});
@@ -470,7 +491,7 @@ try{
   loadout.name=saved.name??'';await goOnline();
 }catch(e){console.error(e);errors.push(String(e));$('load-label').textContent='Unable to start: '+e.message;}
 $('start').addEventListener('click',deploy);renderer.domElement.addEventListener('click',()=>{if(!active&&started&&!ended)deploy();});$('again').addEventListener('click',()=>location.reload());
-$('lobby').addEventListener('click',lobbyClick);for(const id of ['cls-size','cls-diff','cls-name'])$(id).addEventListener('change',()=>{if(netRole==='host'&&!started){readMenu();sendLobby();}});
+$('lobby').addEventListener('click',lobbyClick);for(const id of ['cls-size','cls-diff','cls-name','cls-mode'])$(id).addEventListener('change',()=>{if(netRole==='host'&&!started){readMenu();sendLobby();}});
 renderer.info.autoReset=false;
 function renderFrame(now){
   if(document.hidden)return;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;if(frameTime>.75){fps=Math.round((renderer.info.render.frame||0));frameTime=0;}

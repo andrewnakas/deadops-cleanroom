@@ -15,6 +15,7 @@
     "test:mobile": "node .tools/test-mobile.mjs",
     "test:waves": "node .tools/test-waves.mjs 10",
     "test:tdm": "node .tools/test-tdm.mjs",
+    "test:recovery": "node .tools/test-tdm.mjs 6 regular recovery",
     "test:p2p": "node .tools/test-p2p.mjs",
     "test:lobby": "node .tools/test-lobby.mjs",
     "test:progress": "node .tools/test-progress.mjs",
