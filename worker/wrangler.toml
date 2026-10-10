@@ -10,5 +10,5 @@ ORIGINS = "https://andrewnakas.github.io"
 [[d1_databases]]
 binding = "DB"
 database_name = "graveshift"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "30cae368-5193-4ea7-8947-0d804c2d0b68"
 migrations_dir = "migrations"

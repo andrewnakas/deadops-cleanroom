@@ -30,7 +30,7 @@
     "revolver":{"damage": 55, "minDamage": 40, "range": 1000, "headMultiplier": 1.6, "spread": 0.03}
   },
   "publicRooms": 6,
-  "backend": "",
+  "backend": "https://graveshift-api.andrew-nakas.workers.dev",
   "chatBlock": ["fuck\\w*", "shit\\w*", "bitch\\w*", "cunt\\w*", "asshole\\w*"],
   "fittings": {
     "none": {"name": "None"},

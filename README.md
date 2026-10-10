@@ -18,6 +18,22 @@ Everything you see and hear is free to reuse:
 - **Map, props, posters, film reel:** original procedural work (`export/web/maps/cinema.js`, `props.js`).
 - No names, logos or assets from any commercial game.
 
+## Online services
+
+Multiplayer is still peer-to-peer: the hosting player's browser runs the match. A small Cloudflare Worker
+(`worker/`, D1 database) adds the parts a static page cannot do: a room list, matchmaking (quick play and a
+ranked playlist), match results with leaderboards and stats, friends, parties, chat reports and optional relay
+credentials. The game keeps working without it (rooms by code, solo and bots).
+
+- **What is stored:** an anonymous account made on first online use (a random id and key kept in your browser,
+  no email or password), the name you typed, your rating, friends list and online match totals.
+  Lobby chat is not stored unless someone reports it (the reported lines are kept with the report).
+- **Ranked is peer-hosted.** A result counts when the players in the match report the same score, so it is a
+  friendly ladder, not a tamper-proof one.
+- Run it locally with `npm run test:api` / `npm run test:backend` (no Cloudflare login needed); deploy with
+  `npx wrangler deploy` from `worker/`. A page served from localhost ignores the live service unless opened
+  with `?api=live`.
+
 ## Credits
 
 The engine (player controller, collision, navmesh AI, round rules, touch controls) is adapted from the
@@ -52,6 +68,8 @@ npm run test:mobile          # touch layout and controls
 npm run test:waves           # headless survival run to round 10
 npm run test:tdm             # bots-only team deathmatch to completion
 npm run test:p2p             # two browsers, one hosts and one joins over WebRTC (needs internet)
+npm run test:api             # backend API against a local Worker
+npm run test:backend         # two browsers matched through the local Worker, match reported, panels checked
 npm run bake                 # rebake collision + navmesh after editing maps/cinema.js
 npm run check:licences       # every shipped asset has a CC0 / own-work licence row
 npm run check:marks          # no third-party game names anywhere in the build

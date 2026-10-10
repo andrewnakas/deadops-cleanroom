@@ -3,10 +3,11 @@
 const KEY='graveshift.id';
 const local=u=>/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(u);
 // The test override has to survive the page reloads that move between menu, lobby and match.
-function sticky(u){try{if(u&&local(u))sessionStorage.setItem('graveshift.api',u);const s=sessionStorage.getItem('graveshift.api');return s&&local(s)?s:null;}catch{return u&&local(u)?u:null;}}
+function sticky(u){try{if(u&&(local(u)||u==='live'))sessionStorage.setItem('graveshift.api',u);const s=sessionStorage.getItem('graveshift.api');return s&&(local(s)||s==='live')?s:null;}catch{return u&&(local(u)||u==='live')?u:null;}}
 export class Backend {
   // `override` (the ?api= parameter) is honoured only for a local test server, so a crafted link cannot point the page elsewhere.
-  constructor(base,override){this.base=String(sticky(override)??base??'').replace(/\/+$/,'');this.me=null;this.token=null;this.pending=null;}
+  // A page served from this machine (development, tests) stays off the live service unless asked with ?api=live.
+  constructor(base,override){const o=sticky(override),dev=local(location.origin);this.base=String(o&&o!=='live'?o:dev&&o!=='live'?'':base??'').replace(/\/+$/,'');this.me=null;this.token=null;this.pending=null;}
   get on(){return !!this.base;}
   async call(method,path,body,ms=3000){
     if(!this.base)return null;
