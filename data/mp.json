@@ -18,6 +18,8 @@
     "warden":  {"damage": 28, "minDamage": 20, "range": 800, "headMultiplier": 1.6, "spread": 0.025},
     "revolver":{"damage": 55, "minDamage": 40, "range": 1000, "headMultiplier": 1.6, "spread": 0.03}
   },
+  "unlocks": {"packrat": 2, "ranger": 4, "brute": 6, "kestrel": 8, "revolver": 5,
+              "thickskin": 3, "scavenger": 7, "quickdraw": 3, "deeppockets": 6, "hardline": 4, "lightstep": 9},
   "perks": [
     [{"id": "fleetfoot", "name": "Fleetfoot", "blurb": "Move 12% faster"},
      {"id": "thickskin", "name": "Thick Skin", "blurb": "+25 health"},
