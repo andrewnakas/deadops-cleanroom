@@ -8,7 +8,7 @@ export function createHub({api,el,tabs,mp,clean,signIn,room,idle,go,note}){
   const html={
     async rooms(){
       const r=await api.call('GET','rooms');if(!r||r.error)return null;
-      return '<h4>OPEN ROOMS</h4>'+(r.rooms.length?r.rooms.map(x=>`<p><span>${code(x.code)} · ${clean(mp.maps[x.map]?.name??x.map)} · ${clean(mp.modes[x.mode]?.name??x.mode)} · ${+x.size|0} v ${+x.size|0} · ${+x.humans|0} playing · ${x.playlist==='ranked'?'RANKED':'CASUAL'}${x.started?' · in progress':''}</span>${x.free>0&&!(x.started&&x.playlist==='ranked')?`<button data-join="${code(x.code)}" data-map="${mp.maps[x.map]?x.map:''}" type="button">JOIN</button>`:'<i>FULL</i>'}</p>`).join(''):'<p>No open rooms right now · QUICK PLAY opens one</p>');
+      return '<h4>OPEN ROOMS</h4>'+(r.rooms.some(x=>x.playlist!=='coop')?r.rooms.filter(x=>x.playlist!=='coop').map(x=>`<p><span>${code(x.code)} · ${clean(mp.maps[x.map]?.name??x.map)} · ${clean(mp.modes[x.mode]?.name??x.mode)} · ${+x.size|0} v ${+x.size|0} · ${+x.humans|0} playing · ${x.playlist==='ranked'?'RANKED':'CASUAL'}${x.started?' · in progress':''}</span>${x.free>0&&!(x.started&&x.playlist==='ranked')?`<button data-join="${code(x.code)}" data-map="${mp.maps[x.map]?x.map:''}" type="button">JOIN</button>`:'<i>FULL</i>'}</p>`).join(''):'<p>No open rooms right now · QUICK PLAY opens one</p>');
     },
     async board(){
       const r=await api.call('GET','board?kind='+kind);if(!r||r.error)return null;

@@ -52,24 +52,29 @@ export class Session {
     this.effects={};this.damageTime=-100;this.grenades=4;this.meleeLeft=0;this.spawned=0;this.killed=0;
     this.axe=false;this.totalScore=this.points;this.drops=new PowerupDirector(this);this.drinking=null;this.drinkLeft=0;
     this.nextDogRound=5+Math.floor(this.random()*3);this.dogRound=false;this.dogRounds=0;this.total=roundPopulation(1,this.data.rules);
-    this.lastEvent='Survive the night';this.doubleUntil=0;
+    this.lastEvent='Survive the night';this.doubleUntil=0;this.downState=null;this.downLeft=0;
   }
   get weapon(){return this.inventory[this.slot];}
   get def(){const d=this.data.weapons[this.weapon.id];return this.weapon.upgraded?{...d,...d.upgrade,upgraded:true}:d;}
   get maxHealth(){return this.perks.has('perk_hide')?250:100;}
+  // Co-op only: `downState` is 'down' (a teammate can revive) then 'out' (back next round). The round phase stays shared.
+  get helpless(){return this.phase==='gameover'||this.phase==='reviving'||!!this.downState;}
+  revive(){this.downState=null;this.health=this.maxHealth;this.damageTime=this.time;this.effects.invulnerable=this.time+3;}
   addPoints(n){const value=n*(this.effects.double>this.time?2:1);this.points+=value;this.totalScore+=value;}
   spend(n){if(this.points<n)return false;this.points-=n;return true;}
   damage(n){
-    if(this.phase==='gameover'||this.phase==='reviving'||this.effects.invulnerable>this.time)return false;
+    if(this.helpless||this.effects.invulnerable>this.time)return false;
     this.health=Math.max(0,this.health-n);this.damageTime=this.time;
     if(this.health<=0){
       this.drinking=null;this.drinkLeft=0;
       if(this.perks.has('perk_wind')){this.perks.clear();this.phase='reviving';this.reviveLeft=4;this.revives++;this.lastEvent='Second Wind';}
+      else if(this.coop){this.downState='down';this.downLeft=45;this.lastEvent='Down';}
       else {this.phase='gameover';this.lastEvent='Game over';}
     } return true;
   }
   update(dt){
     if(this.phase==='gameover')return;
+    if(this.downState){this.time+=dt;if(this.downState==='down'&&(this.downLeft-=dt)<=0)this.downState='out';this.prepare(dt);return;}
     this.time+=dt;this.fireLeft=Math.max(0,this.fireLeft-dt);this.meleeLeft=Math.max(0,this.meleeLeft-dt);
     this.drops.observe(this);
     if(this.drinking){this.drinkLeft=Math.max(0,this.drinkLeft-dt);if(!this.drinkLeft){this.perks.add(this.drinking);this.drinking=null;this.health=this.maxHealth;}}
@@ -78,14 +83,15 @@ export class Session {
     if(this.reloadLeft>0)this.reloadLeft-=reloadDt;
     if(this.phase==='reviving'){this.reviveLeft-=dt;if(this.reviveLeft<=0){this.health=100;this.phase='fighting';this.effects.invulnerable=this.time+5;}return;}
     if(this.time-this.damageTime>4) this.health=Math.min(this.maxHealth,this.health+dt*this.maxHealth*.25);
-    if(this.phase==='preparing'){this.countdown-=dt;if(this.countdown<=0){this.phase='fighting';this.lastEvent=this.dogRound?'The hounds are loose':'Round '+this.round;}}
+    this.prepare(dt);
   }
+  prepare(dt){if(this.phase==='preparing'){this.countdown-=dt;if(this.countdown<=0){this.phase='fighting';this.lastEvent=this.dogRound?'The hounds are loose':'Round '+this.round;}}}
   fire(){
-    if(this.phase==='gameover'||this.phase==='reviving'||this.drinking||this.meleeLeft>0||this.reloadLeft>0||this.fireLeft>0||this.weapon.mag===0)return false;
+    if(this.helpless||this.drinking||this.meleeLeft>0||this.reloadLeft>0||this.fireLeft>0||this.weapon.mag===0)return false;
     this.weapon.mag--;this.shots++;this.fireLeft=this.def.fireTime/(this.perks.has('perk_trigger')?1.33:1);return true;
   }
   reload(){
-    if(this.phase==='gameover'||this.phase==='reviving'||this.drinking||this.meleeLeft>0||this.reloadLeft>0||this.weapon.reserve<=0||this.weapon.mag>=this.def.clipSize)return false;
+    if(this.helpless||this.drinking||this.meleeLeft>0||this.reloadLeft>0||this.weapon.reserve<=0||this.weapon.mag>=this.def.clipSize)return false;
     this.reloadEmpty=this.weapon.mag===0;this.reloadInterrupted=false;
     this.setReloadStage(this.def.segmentedReload?(this.def.reloadStartTime>0?'start':'shell'):'magazine');return true;
   }
@@ -105,7 +111,7 @@ export class Session {
   cancelReload(){this.reloadLeft=0;this.reloadStage=null;}
   switchWeapon(slot){if(this.drinking||this.meleeLeft>0||this.inventory.length<2)return;this.slot=(slot??(this.slot+1))%this.inventory.length;this.cancelReload();this.fireLeft=Math.max(.2,this.def.raiseTime??0);}
   drink(perk){
-    const d=this.data.perkDrinks?.[perk];if(!d||this.drinking||this.perks.has(perk)||this.phase==='gameover'||this.phase==='reviving')return false;
+    const d=this.data.perkDrinks?.[perk];if(!d||this.drinking||this.perks.has(perk)||this.helpless)return false;
     this.cancelReload();this.drinking=perk;this.drinkLeft=d.raiseTime+d.dropTime;return true;
   }
   giveWeapon(id){
@@ -123,7 +129,7 @@ export class Session {
   nextRound(){
     this.round++;this.dogRound=this.round===this.nextDogRound;
     if(this.dogRound){this.nextDogRound=this.round+4+Math.floor(this.random()*2);this.dogRounds++;}
-    this.total=this.dogRound?(this.dogRounds<3?6:8):roundPopulation(this.round,this.data.rules);
+    this.total=this.dogRound?(this.dogRounds<3?6:8):roundPopulation(this.round,this.data.rules,this.players??1);
     this.spawned=0;this.killed=0;this.phase='preparing';this.countdown=10;this.grenades=Math.min(4,this.grenades+2);
     this.lastEvent='Round survived';
   }
@@ -133,5 +139,5 @@ export class Session {
     if(type==='blackout')this.addPoints(400);
     if(type==='rebuild')this.addPoints(200);
   }
-  snapshot(){return {totalScore:this.totalScore,drinking:this.drinking,drinkLeft:this.drinkLeft,dropCount:this.drops.count,nextDogRound:this.nextDogRound,round:this.round,phase:this.phase,time:this.time,health:this.health,maxHealth:this.maxHealth,points:this.points,kills:this.kills,headshots:this.headshots,total:this.total,spawned:this.spawned,killed:this.killed,weapon:{...this.weapon,name:this.def.name},inventory:this.inventory.map(w=>({...w})),reloadLeft:this.reloadLeft,reloadStage:this.reloadStage,reloadDuration:this.reloadDuration,meleeLeft:this.meleeLeft,axe:this.axe,perks:[...this.perks],power:this.power,flags:[...this.flags],openDoors:[...this.openDoors],effects:{...this.effects},grenades:this.grenades,dogRound:this.dogRound};}
+  snapshot(){return {totalScore:this.totalScore,drinking:this.drinking,drinkLeft:this.drinkLeft,dropCount:this.drops.count,nextDogRound:this.nextDogRound,round:this.round,phase:this.phase,time:this.time,health:this.health,maxHealth:this.maxHealth,points:this.points,kills:this.kills,headshots:this.headshots,total:this.total,spawned:this.spawned,killed:this.killed,weapon:{...this.weapon,name:this.def.name},inventory:this.inventory.map(w=>({...w})),reloadLeft:this.reloadLeft,reloadStage:this.reloadStage,reloadDuration:this.reloadDuration,meleeLeft:this.meleeLeft,axe:this.axe,perks:[...this.perks],power:this.power,flags:[...this.flags],openDoors:[...this.openDoors],effects:{...this.effects},grenades:this.grenades,dogRound:this.dogRound,downState:this.downState};}
 }

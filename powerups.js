@@ -4,7 +4,7 @@ import { POWERUP_LIFETIME, powerupVisible } from './rules.js';
 
 // Procedural pickup tokens with a glow aura and drifting motes.
 export class Powerups {
-  constructor(scene,data,audio,onCollect){Object.assign(this,{scene,data,audio,onCollect});this.items=[];this.bursts=[];this.templates={};
+  constructor(scene,data,audio,onCollect){Object.assign(this,{scene,data,audio,onCollect});this.items=[];this.bursts=[];this.templates={};this.serial=0;
     const size=64,pixels=new Uint8Array(size*size*4);
     for(let y=0;y<size;y++)for(let x=0;x<size;x++){const i=(y*size+x)*4,r=Math.hypot(x-31.5,y-31.5)/31.5;pixels.set([180,255,105,Math.round(255*Math.pow(Math.max(0,1-r),2.5))],i);}
     this.texture=new THREE.DataTexture(pixels,size,size);this.texture.needsUpdate=true;
@@ -16,7 +16,7 @@ export class Powerups {
     const root=new THREE.Group(),model=this.templates[type].clone(true),aura=new THREE.Sprite(this.spriteMaterial);aura.scale.set(94,94,1);root.add(aura,model);
     const motes=[];for(let i=0;i<9;i++){const p=new THREE.Sprite(this.spriteMaterial);p.scale.setScalar(10);root.add(p);motes.push(p);}
     root.position.copy(position).y+=40;this.scene.add(root);
-    const item={type,root,model,aura,motes,age:0,from:new THREE.Quaternion(),to:new THREE.Quaternion(),turn:0,duration:0};this.items.push(item);
+    const item={id:++this.serial,type,root,model,aura,motes,age:0,from:new THREE.Quaternion(),to:new THREE.Quaternion(),turn:0,duration:0};this.items.push(item);
     this.audio.play('powerup_spawn');return item;
   }
   burst(position){const sprite=new THREE.Sprite(this.spriteMaterial.clone());sprite.position.copy(position);this.scene.add(sprite);this.bursts.push({sprite,age:0});}
@@ -29,7 +29,7 @@ export class Powerups {
       p.motes.forEach((m,i)=>{const a=p.age*1.4+i*2.4;m.position.set(Math.cos(a)*(16+i%3*4),((p.age*24+i*7)%65)-30,Math.sin(a)*(16+i%3*4));});
       if(p.age>=POWERUP_LIFETIME){this.remove(p);continue;}
       if(canCollect&&feet.distanceTo(p.root.position)<64&&lineClear(feet.clone().add(new THREE.Vector3(0,40,0)),p.root.position)){
-        const position=p.root.position.clone();this.remove(p);this.burst(position);this.onCollect(p.type,position);
+        const position=p.root.position.clone();this.remove(p);this.burst(position);this.onCollect(p.type,position,p);
       }
     }
     for(const b of [...this.bursts]){b.age+=dt;b.sprite.scale.setScalar(30+b.age*240);b.sprite.material.opacity=Math.max(0,1-b.age*1.8);if(b.age>.6){b.sprite.removeFromParent();b.sprite.material.dispose();this.bursts.splice(this.bursts.indexOf(b),1);}}
