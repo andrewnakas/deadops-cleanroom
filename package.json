@@ -5,7 +5,9 @@
   "description": "Graveshift: round-based zombie survival and team deathmatch in the browser. All art CC0, sound made in code, original maps.",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node .tools/serve.mjs 5173",
     "bake": "node .tools/bake-map.mjs cinema",
@@ -27,13 +29,18 @@
     "test:progress": "node .tools/test-progress.mjs",
     "bake:suburb": "node .tools/bake-map.mjs suburb",
     "check:licences": "python -I tools/check_manifest.py",
-    "check:marks": "python -I tools/check_marks.py export/web"
+    "check:marks": "python -I tools/check_marks.py export/web worker",
+    "test:api": "node .tools/test-api.mjs",
+    "test:backend": "node .tools/test-backend.mjs"
   },
   "dependencies": {
-    "three": "0.185.1",
-    "three-mesh-bvh": "0.9.14",
     "@recast-navigation/core": "0.43.1",
-    "@recast-navigation/generators": "0.43.1"
+    "@recast-navigation/generators": "0.43.1",
+    "three": "0.185.1",
+    "three-mesh-bvh": "0.9.14"
   },
-  "devDependencies": { "playwright-core": "1.62.1" }
+  "devDependencies": {
+    "playwright-core": "1.62.1",
+    "wrangler": "^4.149.0"
+  }
 }

@@ -23,3 +23,5 @@ CLAUDE.md
 /docs/
 /assets/manifest.csv
 /tools/build_manifest.py
+/worker/.wrangler/
+/worker/.dev.vars
