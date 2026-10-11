@@ -3,14 +3,14 @@
 // weapons, perks and health; a joiner's hits are sent to the host, which answers with the score for them.
 import * as THREE from 'three';
 import { Net } from './net.js';
-import { loadAsset, instance, ClipRig } from './models.js';
+import { loadAsset, instance, ClipRig, soften, gritty } from './models.js';
 
 const MAX=4,KINDS=['zombie','dog','nova'],STATES=['chase','attack','barricade','entering'],REVIVE_SECONDS=3;
 const AVATAR={url:'models/soldier.glb',clips:{idle:'Idle_Shoot',run:'Run_Gun',death:'Death'},show:['Body','Head','ShoulderPad.L','ShoulderPad.R','AK']};
 const clean=n=>String(n??'').replace(/[^\w .\-]/g,'').slice(0,14)||'Guest',num=(v,lo,hi)=>Math.min(hi,Math.max(lo,+v||0)),r1=v=>Math.round(v*10)/10;
 
 export async function createCoop(g){
-  const {session,enemies,world,powerups,audio,data}=g,net=new Net(),mates=new Map(),asset=await loadAsset(AVATAR.url),gone=new Set();
+  const {session,enemies,world,powerups,audio,data}=g,net=new Net(),mates=new Map(),asset=soften(await loadAsset(AVATAR.url)),gone=new Set();
   const c={role:g.role,room:g.room,seat:g.role==='host'?0:-1,over:false,status:'',mates};
   let sendT=0,lastSnap=0,lastRound=session.round;
   session.coop=true;
@@ -18,7 +18,7 @@ export async function createCoop(g){
   // ---------- other players ----------
   function addMate(seat,name){
     const model=instance(asset,70,'y'),root=new THREE.Group();model.rotation.y=Math.PI/2;
-    model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;if(!AVATAR.show.some(n=>o.name.startsWith(n.replace('.',''))))o.visible=false;}});
+    model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;if(!AVATAR.show.some(n=>o.name.startsWith(n.replace('.',''))))o.visible=false;else{o.material=[o.material].flat().map(m=>gritty(m.clone(),{desat:.5,dirt:.5,freq:6/asset.span,seed:seat,tone:0x9a9484}));if(o.material.length===1)o.material=o.material[0];}}});
     const rig=new ClipRig(model,asset.clips);for(const [k,v] of Object.entries(AVATAR.clips))rig.map(k,v);rig.play('idle');
     root.add(model);g.scene.add(root);
     const m={seat,name:clean(name),root,rig,pos:new THREE.Vector3(),netPos:null,yaw:0,state:2,ev:[],hold:0,held:-9,last:performance.now()};mates.set(seat,m);return m;

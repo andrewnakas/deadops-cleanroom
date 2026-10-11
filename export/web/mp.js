@@ -7,7 +7,7 @@ import { configureAssets, assetLog } from './runtime-assets.js';
 import { buildSuburb } from './maps/suburb.js';
 import { buildYard } from './maps/yard.js';
 import { buildWharf } from './maps/wharf.js';
-import { loadAsset, instance, ClipRig } from './models.js';
+import { loadAsset, instance, ClipRig, soften, gritty, refineGun } from './models.js';
 import { Gamepad } from './gamepad.js';
 import { createZombieTouch } from './zombies-touch.js';
 import { Net } from './net.js';
@@ -124,12 +124,12 @@ class Arms {
 }
 // ---------- soldiers ----------
 const teamAssets=[];
-async function loadTeams(){for(const t of mp.teams)teamAssets.push(await loadAsset(t.model));teamAssets.gun=await loadAsset('models/rifle.glb');}
+async function loadTeams(){for(const t of mp.teams)teamAssets.push(soften(await loadAsset(t.model)));teamAssets.gun=refineGun(await loadAsset('models/rifle.glb'));}
 function makeBody(team){
   const t=mp.teams[team],asset=teamAssets[team],model=instance(asset,70,'y');model.rotation.y=Math.PI/2;
   model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;if(t.showMesh&&!t.showMesh.some(n=>o.name.startsWith(n.replace('.',''))))o.visible=false;}});
   if(t.attachGun){const wrist=model.getObjectByName(t.attachGun);if(wrist){model.updateMatrixWorld(true);const ws=wrist.getWorldScale(new THREE.Vector3()),g=instance(teamAssets.gun,30,'max');g.scale.multiplyScalar(1/ws.x);g.rotation.set(0,Math.PI/2,Math.PI/2);wrist.add(g);}}
-  const tint=new THREE.Color(t.color);model.traverse(o=>{if(o.isMesh&&o.visible){o.material=[o.material].flat().map(m=>{const c=m.clone();c.emissive=tint;c.emissiveIntensity=.07;return c;});if(o.material.length===1)o.material=o.material[0];}});
+  const tint=new THREE.Color(t.color);model.traverse(o=>{if(o.isMesh&&o.visible){o.material=[o.material].flat().map(m=>{const c=gritty(m.clone(),{desat:.5,dirt:.55,freq:6/asset.span,seed:team*3+1,tone:team?0x8f8a80:0x9a9484});c.emissive=tint;c.emissiveIntensity=.05;return c;});if(o.material.length===1)o.material=o.material[0];}});
   const rig=new ClipRig(model,asset.clips);for(const [k,c] of Object.entries(t.clips))rig.map(k,c);rig.play('idle');
   const root=new THREE.Group();root.add(model);
   const tag=new THREE.Sprite(new THREE.SpriteMaterial({color:t.color,transparent:true,opacity:.85,depthTest:false}));tag.scale.set(6,6,1);tag.position.y=84;root.add(tag);

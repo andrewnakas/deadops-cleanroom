@@ -1,24 +1,25 @@
 import * as THREE from 'three';
-import { loadAsset, instance, ClipRig } from './models.js';
+import { loadAsset, instance, ClipRig, soften, gritty } from './models.js';
 import { zombieHealth } from './rules.js';
 import { disposeSkeletons } from './runtime-assets.js';
 
 // Undead: CC0 Quaternius zombies and wolves (assets/LICENSES.csv) driven by navmesh AI.
-const ZOMBIES=[{url:'models/zombie_a.glb',walk:'Walk',run:'Run',sprint:'Run_Arms',attack:'Punch',death:'Death',crawl:'Crawl',tint:0x9fb08a},
-  {url:'models/zombie_b.glb',walk:'Walk',run:'Run',sprint:'Run',attack:'Attack',death:'Death',tint:0xb0a490}];
+const ZOMBIES=[{url:'models/zombie_a.glb',walk:'Walk',run:'Run',sprint:'Run_Arms',attack:'Punch',death:'Death',crawl:'Crawl',tint:0x8f9684},
+  {url:'models/zombie_b.glb',walk:'Walk',run:'Run',sprint:'Run',attack:'Attack',death:'Death',tint:0x9a9488}];
 const HOUND={url:'models/wolf_b.glb',walk:'Gallop',run:'Gallop',sprint:'Gallop',attack:'Attack',death:'Death',tint:0x3a2a26};
 export class Enemies {
   constructor(scene,world,data,session,{damage,kill,hit,sound}){Object.assign(this,{scene,world,data,session,onDamage:damage,onKill:kill,onHit:hit,onSound:sound});this.list=[];this.dead=[];this.nextSpawn=0;this.serial=0;this.templates=[];this.anims={};}
   async load(){
-    this.types=await Promise.all(ZOMBIES.map(async t=>({...t,asset:await loadAsset(t.url)})));
-    this.hound={...HOUND,asset:await loadAsset(HOUND.url)};
+    this.types=await Promise.all(ZOMBIES.map(async t=>({...t,asset:soften(await loadAsset(t.url))})));
+    this.hound={...HOUND,asset:soften(await loadAsset(HOUND.url))};
   }
   spawn(position=null,barrier=null,kind=this.session.dogRound?'dog':'zombie'){
     const id=++this.serial,root=new THREE.Group();root.name=kind+'_'+id;
     const type=kind==='dog'?this.hound:kind==='nova'?this.types[0]:this.types[id%this.types.length];
     const model=instance(type.asset,kind==='dog'?34:kind==='nova'?70:66+(id%5)*2.5,'y');
     model.rotation.y=Math.PI/2;
-    model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;const tint=kind==='nova'?0x8fd06a:type.tint;o.material=[o.material].flat().map(m=>{const c=m.clone();c.color.multiply(new THREE.Color(tint));if(kind==='dog'){c.emissive=new THREE.Color(0x401008);}return c;});if(o.material.length===1)o.material=o.material[0];}});
+    model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;const tint=kind==='nova'?0x8fd06a:type.tint;o.material=[o.material].flat().map(m=>{const c=m.clone();c.color.multiply(new THREE.Color(tint));if(kind==='dog'){c.emissive=new THREE.Color(0x401008);}
+      return gritty(c,{desat:kind==='nova'?.35:.72,dirt:.75,blood:kind==='dog'?.5:1,freq:7/type.asset.span,seed:id%13});});if(o.material.length===1)o.material=o.material[0];}});
     root.add(model);root.position.copy(position??barrier.outside);this.scene.add(root);
     const rig=new ClipRig(model,type.asset.clips),round=this.session.round;
     const speed=kind==='dog'?230:kind==='nova'?Math.min(120,40+round*5):Math.min(210,34+round*8+(id%4)*5);

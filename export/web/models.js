@@ -33,6 +33,41 @@ export function refineGun(asset){
   });
   return asset;
 }
+// Characters arrive as bright, faceted toy figures. `soften` rounds their shading once per asset;
+// `gritty` mutes a material's colours and lays dirt and dried blood over it in the shader, placed in
+// the model's own space so the marks stay put as the skeleton moves.
+// Average the face normals of every vertex that shares a position (fast: one pass with a numeric hash).
+function smoothNormals(g){
+  const p=g.getAttribute('position'),n=g.getAttribute('normal');if(!p||!n)return;const sums=new Map(),keys=new Float64Array(p.count);
+  for(let i=0;i<p.count;i++){const k=Math.round(p.getX(i)*2e3)*73856093+Math.round(p.getY(i)*2e3)*19349663+Math.round(p.getZ(i)*2e3)*83492791;keys[i]=k;let s=sums.get(k);if(!s)sums.set(k,s=[0,0,0]);s[0]+=n.getX(i);s[1]+=n.getY(i);s[2]+=n.getZ(i);}
+  for(let i=0;i<p.count;i++){const s=sums.get(keys[i]),l=Math.hypot(s[0],s[1],s[2])||1;n.setXYZ(i,s[0]/l,s[1]/l,s[2]/l);}
+  n.needsUpdate=true;
+}
+export function soften(asset){
+  if(asset.softened)return asset;asset.softened=true;const box=new THREE.Box3().setFromObject(asset.scene);asset.span=Math.max(1e-3,box.max.y-box.min.y);
+  asset.scene.traverse(o=>{if(o.isMesh)smoothNormals(o.geometry);});
+  return asset;
+}
+const GRIT_GLSL=`
+float gtHash(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float gtNoise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+  return mix(mix(mix(gtHash(i),gtHash(i+vec3(1,0,0)),f.x),mix(gtHash(i+vec3(0,1,0)),gtHash(i+vec3(1,1,0)),f.x),f.y),mix(mix(gtHash(i+vec3(0,0,1)),gtHash(i+vec3(1,0,1)),f.x),mix(gtHash(i+vec3(0,1,1)),gtHash(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float gtFbm(vec3 p){return gtNoise(p)*.6+gtNoise(p*2.3+5.)*.28+gtNoise(p*5.1+11.)*.12;}`;
+export function gritty(material,{desat=.6,dirt=.5,blood=0,freq=6,seed=0,tone=0xffffff}={}){
+  material.roughness=Math.max(material.roughness??.8,.72);material.metalness=Math.min(material.metalness??0,.1);material.flatShading=false;
+  material.onBeforeCompile=shader=>{
+    Object.assign(shader.uniforms,{gtDesat:{value:desat},gtDirt:{value:dirt},gtBlood:{value:blood},gtFreq:{value:freq},gtSeed:{value:seed},gtTone:{value:new THREE.Color(tone)}});
+    shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 gtPos;').replace('#include <begin_vertex>','#include <begin_vertex>\ngtPos=position;');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 gtPos;uniform float gtDesat,gtDirt,gtBlood,gtFreq,gtSeed;uniform vec3 gtTone;float gtWet;'+GRIT_GLSL)
+      .replace('#include <map_fragment>',`#include <map_fragment>
+        vec3 gtP=gtPos*gtFreq+gtSeed*7.3;float gtL=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(gtL),gtDesat)*gtTone;
+        float gtD=smoothstep(.42,.75,gtFbm(gtP*.8));diffuseColor.rgb*=1.-gtD*gtDirt*.7;
+        gtWet=smoothstep(.6,.72,gtFbm(gtP*1.25+31.))*gtBlood;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.13,.012,.01),gtWet*.92);`)
+      .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.5,gtWet);');
+  };
+  material.customProgramCacheKey=()=>'gritty';material.needsUpdate=true;return material;
+}
 // Clone and scale so the chosen axis spans `size` units ('y' height, 'x'/'z' length, 'max' longest side).
 export function instance(asset,size,axis='y'){
   const key=axis+size;
