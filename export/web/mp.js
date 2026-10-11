@@ -741,6 +741,6 @@ $('lobby').addEventListener('click',lobbyClick);$('lobby').addEventListener('key
 renderer.info.autoReset=false;
 function renderFrame(now){
   if(document.hidden)return;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;fpsFrames++;if(frameTime>.75){fps=Math.round(fpsFrames/frameTime);frameTime=0;fpsFrames=0;}
-  pad.poll();update(dt);renderer.info.reset();pipeline.render(dt,{view:!!(started&&!killcam&&human()?.alive)});
+  pad.poll();update(dt);world?.updateLights(dt,camera.position,1);renderer.info.reset();pipeline.render(dt,{view:!!(started&&!killcam&&human()?.alive)});
 }
 renderer.setAnimationLoop(renderFrame);

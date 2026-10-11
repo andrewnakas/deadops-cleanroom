@@ -61,19 +61,22 @@ export class World {
     const bytes=await fetch(`maps/${mapName}-nav.bin`).then(r=>{if(!r.ok)throw new Error('navmesh HTTP '+r.status);return r.arrayBuffer();});
     await init();
     const nav=importNavMesh(new Uint8Array(bytes));this.nav=nav.navMesh;this.query=new NavMeshQuery(this.nav,{maxNodes:8192});this.query.defaultQueryHalfExtents={x:70,y:100,z:70};
-    // Map lights. Each one under a ceiling gets a visible fitting (shade and glowing bulb) so the light has a source.
-    this.lights=[];this.lightLevel=1;this.shadowSpots=[];const up=new THREE.Ray(new THREE.Vector3(),new THREE.Vector3(0,1,0));
-    const shade=new THREE.MeshStandardMaterial({color:0x2a2a2c,roughness:.5,metalness:.7}),shadeGeo=new THREE.CylinderGeometry(5,11,7,20,1,true),bulbGeo=new THREE.SphereGeometry(3.6,14,10),rodGeo=new THREE.CylinderGeometry(.6,.6,1,6);
+    // Map lights. A map may describe any number; only the nearest few are lit at once, through a fixed
+    // pool of point lights (and shadowed down-lights) that fade from one fitting to the next. The shader
+    // cost is therefore the same on every map. Lights under a ceiling get a visible fitting with a bulb.
+    this.lights=[];this.lightLevel=1;this.pointPool=[];this.shadowSpots=[];const up=new THREE.Ray(new THREE.Vector3(),new THREE.Vector3(0,1,0));
+    const shade=new THREE.MeshStandardMaterial({color:0x2a2a2c,roughness:.5,metalness:.7,side:THREE.DoubleSide}),shadeGeo=new THREE.CylinderGeometry(5,11,7,20,1,true),bulbGeo=new THREE.SphereGeometry(3.6,14,10),rodGeo=new THREE.CylinderGeometry(.6,.6,1,6);
     for(const l of kit.lights){
-      const p=new THREE.PointLight(l.color,l.intensity*900,l.distance*1.6,1.6);p.position.fromArray(l.position);this.scene.add(p);
-      const entry={light:p,base:l.intensity*900,share:1,bulb:null,flicker:Math.random()*10};this.lights.push(entry);
-      up.origin.copy(p.position);const hit=this.collision.rayIntersect(up,0,90);if(!hit)continue;
-      const fit=new THREE.Group(),drop=Math.max(6,hit.distance);fit.position.copy(p.position);
+      const entry={position:new THREE.Vector3().fromArray(l.position),color:new THREE.Color(l.color),base:l.intensity*900,distance:l.distance*1.6,share:1,bulb:null,fitting:false,flicker:Math.random()*10};this.lights.push(entry);
+      up.origin.copy(entry.position);const hit=l.fitting===false?null:this.collision.rayIntersect(up,0,90);
+      if(l.fitting===false)entry.bulb=null;if(!hit)continue;
+      const fit=new THREE.Group(),drop=Math.max(6,hit.distance);fit.position.copy(entry.position);
       const rod=new THREE.Mesh(rodGeo,shade);rod.scale.y=drop;rod.position.y=drop/2+3;
-      const cup=new THREE.Mesh(shadeGeo,shade);cup.position.y=2;shade.side=THREE.DoubleSide;
+      const cup=new THREE.Mesh(shadeGeo,shade);cup.position.y=2;
       const bulb=new THREE.Mesh(bulbGeo,new THREE.MeshStandardMaterial({color:0x111111,emissive:l.color,emissiveIntensity:6}));bulb.userData.noAO=true;
-      fit.add(rod,cup,bulb);this.scene.add(fit);entry.bulb=bulb;p.position.y-=5;
+      fit.add(rod,cup,bulb);this.scene.add(fit);entry.bulb=bulb;entry.fitting=true;entry.position.y-=5;
     }
+    for(let i=0;i<Math.min(this.lights.length,T.lights);i++){const p=new THREE.PointLight(0xffffff,0,800,1.6);this.scene.add(p);this.pointPool.push({light:p,entry:null,want:null,level:0});}
     // Set dressing models: loaded once each, cloned per placement, static.
     this.props=new THREE.Group();this.props.name='props';this.scene.add(this.props);
     const propAssets=new Map(await Promise.all([...new Set(kit.props.map(p=>p.model))].map(async m=>[m,await loadAsset(`models/props/${m}.glb`).catch(()=>null)])));
@@ -150,27 +153,35 @@ export class World {
     },staticIntersect:c=>{const hit=this.collision.capsuleIntersect(c);if(hit)return hit;for(const d of this.dynamic)if(d.enabled&&d.collider){const h=d.collider.capsuleIntersect(c);if(h)return h;}return false;},
       rayIntersect:(r,n=0,f=Infinity)=>this.raycast(r,n,f,true)};
   }
-  // Shadowed down-lights: a small pool that takes over the fittings nearest the camera, so only a few
-  // shadow maps are ever drawn and no shader has to be rebuilt as the player walks around.
   addShadowSpots(count){
-    for(let i=0;i<count;i++){const s=new THREE.SpotLight(0xffffff,0,900,1.12,.7,1.6);s.userData.entry=null;s.userData.want=null;s.userData.level=0;this.scene.add(s,s.target);this.shadowSpots.push(s);}
-    return this.shadowSpots;
+    for(let i=0;i<count;i++){const s=new THREE.SpotLight(0xffffff,0,900,1.12,.7,1.6);this.scene.add(s,s.target);this.shadowSpots.push({light:s,entry:null,want:null,level:0});}
+    return this.shadowSpots.map(s=>s.light);
+  }
+  // Give each pool slot the entry it should show: slots keep an entry that is still wanted, the rest take the unclaimed ones.
+  _assign(pool,wanted){
+    const claimed=new Set();
+    for(const s of pool){if(s.entry&&wanted.includes(s.entry)){s.want=s.entry;claimed.add(s.entry);}else s.want=null;}
+    for(const s of pool){if(s.want)continue;const e=wanted.find(e=>!claimed.has(e));if(e){s.want=e;claimed.add(e);}}
+  }
+  // Fade a slot out, move it, fade it in. Returns true while it is showing its entry.
+  _slide(s,dt){
+    const leaving=s.want!==s.entry;s.level=THREE.MathUtils.damp(s.level,leaving?0:1,7,dt);
+    if(leaving&&s.level<.03){s.entry=s.want;s.level=0;if(s.entry){const l=s.light,e=s.entry;l.position.copy(e.position);l.color.copy(e.color);l.distance=e.distance;if(l.isSpotLight)l.target.position.set(e.position.x,e.position.y-100,e.position.z);}}
+    return !!s.entry;
   }
   updateLights(dt,eye,level=1){
     this.lightLevel=THREE.MathUtils.damp(this.lightLevel,level,3,dt);this.lightClock=(this.lightClock??0)+dt;
-    if(this.shadowSpots.length&&(this.lightScan=(this.lightScan??0)-dt)<=0){
-      this.lightScan=.4;const near=this.lights.filter(e=>e.bulb).map(e=>[e,e.light.position.distanceToSquared(eye)]).sort((a,b)=>a[1]-b[1]).slice(0,this.shadowSpots.length).map(x=>x[0]);
-      const claimed=new Set();
-      for(const s of this.shadowSpots){const u=s.userData;if(u.entry&&near.includes(u.entry)){u.want=u.entry;claimed.add(u.entry);}else u.want=null;}
-      for(const s of this.shadowSpots){const u=s.userData;if(u.want)continue;const e=near.find(e=>!claimed.has(e));if(e){u.want=e;claimed.add(e);}}
+    if((this.lightScan=(this.lightScan??0)-dt)<=0){
+      this.lightScan=.35;
+      // rank by how much light would reach the eye: near and strong first, and a small bonus for staying lit
+      const lit=new Set(this.pointPool.map(s=>s.entry)),rank=this.lights.map(e=>[e,e.base/(1+e.position.distanceToSquared(eye)/(e.distance*e.distance*.2))*(lit.has(e)?1.25:1)]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+      this._assign(this.pointPool,rank.slice(0,this.pointPool.length));
+      this._assign(this.shadowSpots,this.lights.filter(e=>e.fitting).map(e=>[e,e.position.distanceToSquared(eye)]).sort((a,b)=>a[1]-b[1]).slice(0,this.shadowSpots.length).map(x=>x[0]));
     }
-    for(const s of this.shadowSpots){
-      const u=s.userData,leaving=u.want!==u.entry;
-      u.level=THREE.MathUtils.damp(u.level,leaving?0:1,7,dt);
-      if(leaving&&u.level<.03){if(u.entry)u.entry.share=1;u.entry=u.want;u.level=0;if(u.entry){const p=u.entry.light;s.position.copy(p.position);s.target.position.set(p.position.x,p.position.y-100,p.position.z);s.color.copy(p.color);s.distance=p.distance;}}
-      if(u.entry){u.entry.share=1-.62*u.level;s.intensity=u.entry.base*.62*u.level*this.lightLevel*1.5;}else s.intensity=0;
-    }
-    for(const e of this.lights){const f=1+Math.sin(this.lightClock*9+e.flicker)*.015;e.light.intensity=e.base*e.share*this.lightLevel*f;if(e.bulb)e.bulb.material.emissiveIntensity=(.6+5.4*this.lightLevel)*f;}
+    for(const e of this.lights)e.share=1;
+    for(const s of this.shadowSpots){if(this._slide(s,dt)){s.entry.share=1-.62*s.level;s.light.intensity=s.entry.base*.93*s.level*this.lightLevel;}else s.light.intensity=0;}
+    for(const s of this.pointPool){if(this._slide(s,dt)){const f=1+Math.sin(this.lightClock*9+s.entry.flicker)*.015;s.light.intensity=s.entry.base*s.entry.share*s.level*this.lightLevel*f;}else s.light.intensity=0;}
+    for(const e of this.lights)if(e.bulb)e.bulb.material.emissiveIntensity=.6+5.4*this.lightLevel;
   }
   update(dt,session){
     for(const a of this.animated)a.userData.update?.(dt,session.power);

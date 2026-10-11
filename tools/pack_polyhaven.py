@@ -18,7 +18,7 @@ for alias in args[3:]:
     src = os.path.join(dl, 'models', alias, alias + '.gltf'); out = os.path.join(outdir, alias + '.glb')
     if not os.path.exists(src): print('MISSING', alias); continue
     r = subprocess.run(['node', cli, 'optimize', src, out, '--compress', 'quantize', '--texture-compress', 'webp', '--texture-size', str(size),
-                        '--simplify-error', '0.0015', '--simplify-ratio', '0.5', '--palette', 'false', '--join', 'true'], capture_output=True, text=True)
+                        '--simplify-error', '0.0015', '--simplify-ratio', '0.5', '--palette', 'false', '--join', 'true'], capture_output=True, text=True, encoding='utf8', errors='ignore')
     if r.returncode or not os.path.exists(out): print('FAIL', alias, (r.stderr or r.stdout)[-300:]); continue
     info = json.load(open(os.path.join(dl, 'models', alias, 'licence.json')))
     rel = 'models/' + (sub + '/' if sub else '') + alias + '.glb'

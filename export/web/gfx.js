@@ -6,10 +6,10 @@ import { settings, qualityTier } from './settings.js';
 // the shadow setup and the texture loader. `pixels` caps the drawing buffer whatever the screen is.
 export const TIER_ORDER=['low','medium','high','ultra'];
 export const TIERS={
-  low:   {ratio:1,  pixels:1.3e6,post:false,msaa:0,bloom:0,  ao:false,sharpen:0,  shadow:0,   shadowLights:0,softShadows:false,tex:512, aniso:4, shafts:false},
-  medium:{ratio:1.5,pixels:2.2e6,post:true, msaa:0,bloom:.22,ao:false,sharpen:.3, shadow:1024,shadowLights:1,softShadows:false,tex:1024,aniso:8, shafts:true},
-  high:  {ratio:2,  pixels:4.2e6,post:true, msaa:4,bloom:.28,ao:true, sharpen:.4, shadow:2048,shadowLights:3,softShadows:true, tex:1024,aniso:16,shafts:true},
-  ultra: {ratio:2.5,pixels:9e6,  post:true, msaa:4,bloom:.3, ao:true, sharpen:.45,shadow:4096,shadowLights:4,softShadows:true, tex:2048,aniso:16,shafts:true},
+  low:   {lights:4,ratio:1,  pixels:1.3e6,post:false,msaa:0,bloom:0,  ao:false,sharpen:0,  shadow:0,   shadowLights:0,softShadows:false,tex:512, aniso:4, shafts:false},
+  medium:{lights:6,ratio:1.5,pixels:2.2e6,post:true, msaa:0,bloom:.22,ao:false,sharpen:.3, shadow:1024,shadowLights:1,softShadows:false,tex:1024,aniso:8, shafts:true},
+  high:  {lights:8,ratio:2,  pixels:4.2e6,post:true, msaa:4,bloom:.28,ao:true, sharpen:.4, shadow:2048,shadowLights:3,softShadows:true, tex:1024,aniso:16,shafts:true},
+  ultra: {lights:10,ratio:2.5,pixels:9e6,  post:true, msaa:4,bloom:.3, ao:true, sharpen:.45,shadow:4096,shadowLights:4,softShadows:true, tex:2048,aniso:16,shafts:true},
 };
 // A session-only ceiling set by the frame-time watchdog (never stored: the player's choice stays theirs).
 let ceiling=TIER_ORDER.length-1;
