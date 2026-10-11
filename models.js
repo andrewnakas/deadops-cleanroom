@@ -23,7 +23,8 @@ export function refineGun(asset){
   if(asset.refined)return asset;asset.refined=true;const hsl={};
   asset.scene.traverse(o=>{
     if(!o.isMesh||o.isSkinnedMesh)return;
-    try{o.geometry=toCreasedNormals(o.geometry,.7);}catch{}
+    // textured, quantized models already have good normals (and re-indexing would lose their packed UVs)
+    if(![o.material].flat().some(x=>x.map)){try{o.geometry=toCreasedNormals(o.geometry,.7);}catch{}}
     o.material=[o.material].flat().map(m=>{
       if(m.map||m.normalMap)return m;const c=m.clone();c.color.getHSL(hsl);
       if(hsl.l<.2||hsl.s<.12){c.metalness=.86;c.roughness=hsl.l<.2?.36:.3;c.color.multiplyScalar(hsl.l<.2?1.1:.42);}

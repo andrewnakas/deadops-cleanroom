@@ -55,7 +55,7 @@ export class ViewModel {
     const gun=instance(asset,def.view.length*.85,'max'),b=gun.userData.bounds;
     // CC0 gun models point down +X; turn them to -Z (away from the camera) and centre the grip.
     gun.userData.inner.position.set(-(b.min.x+b.max.x)/2,-(b.min.y+b.max.y)/2,-(b.min.z+b.max.z)/2);
-    const wrap=new THREE.Group();wrap.add(gun);wrap.rotation.y=Math.PI/2;
+    const wrap=new THREE.Group();wrap.add(gun);wrap.rotation.y=Math.PI/2+(def.view.yaw??0);
     if(def.upgraded)gun.traverse(o=>{if(o.isMesh)o.material=[o.material].flat().map(m=>{const c=m.clone();c.emissive=new THREE.Color(0x3a1060);c.emissiveIntensity=.8;c.color.lerp(new THREE.Color(0x8a5cff),.35);return c;});});
     this.gun=wrap;this.holder.add(wrap);this.def=def;
     const L=def.view.length;this.right.position.set(.01,-.05,L*.12);this.left.position.set(-.035,-.03,-L*.32);this.left.rotation.set(.55,-.5,0);this.right.rotation.set(.7,.3,0);

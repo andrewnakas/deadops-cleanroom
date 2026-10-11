@@ -78,6 +78,8 @@ export class World {
       const cup=new THREE.Mesh(shadeGeo,shade);cup.position.y=2;
       const bulb=new THREE.Mesh(bulbGeo,new THREE.MeshStandardMaterial({color:0x111111,emissive:l.color,emissiveIntensity:6}));bulb.userData.noAO=true;
       fit.add(rod,cup,bulb);this.scene.add(fit);entry.bulb=bulb;entry.fitting=true;entry.position.y-=5;
+      // a faint cone of lit dust under the shade
+      if(T.shafts){const h=Math.min(150,entry.position.y>200?150:110),cone=new THREE.Mesh(new THREE.CylinderGeometry(7,h*.62,h,28,1,true),new THREE.MeshBasicMaterial({color:l.color,transparent:true,opacity:.035,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));cone.position.y=-h/2-2;cone.userData.noAO=true;cone.renderOrder=2;fit.add(cone);entry.cone=cone;}
     }
     for(let i=0;i<Math.min(this.lights.length,T.lights);i++){const p=new THREE.PointLight(0xffffff,0,800,1.6);this.scene.add(p);this.pointPool.push({light:p,entry:null,want:null,level:0});}
     // Set dressing models: loaded once each, cloned per placement, static.
@@ -195,7 +197,7 @@ export class World {
     for(const e of this.lights)e.share=1;
     for(const s of this.shadowSpots){if(this._slide(s,dt)){s.entry.share=1-.62*s.level;s.light.intensity=s.entry.base*.93*s.level*this.lightLevel;}else s.light.intensity=0;}
     for(const s of this.pointPool){if(this._slide(s,dt)){const f=1+Math.sin(this.lightClock*9+s.entry.flicker)*.015;s.light.intensity=s.entry.base*s.entry.share*s.level*(s.entry.fixed?1:this.lightLevel)*f;}else s.light.intensity=0;}
-    for(const e of this.lights)if(e.bulb)e.bulb.material.emissiveIntensity=.6+5.4*this.lightLevel;
+    for(const e of this.lights)if(e.bulb){e.bulb.material.emissiveIntensity=.6+3*this.lightLevel;if(e.cone)e.cone.material.opacity=.012+.022*Math.min(1.6,this.lightLevel);}
   }
   update(dt,session){
     for(const a of this.animated)a.userData.update?.(dt,session.power);
