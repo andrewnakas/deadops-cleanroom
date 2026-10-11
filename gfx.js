@@ -33,14 +33,27 @@ export function createRenderer(profile,{exposure=1.1}={}){
 // Image-based lighting from an equirectangular HDR: reflections and soft fill for every PBR material.
 // `background` also shows it as the sky. Scenes listed in `also` (the weapon scene) share the light.
 const envCache=new Map();
+// Light rigs that go with each environment image: moon direction (matched to the picture by eye),
+// colours and how strongly the image lights the scene.
+export const ENVIRONMENTS={
+  sky_clear:   {moon:[-.55,.62,.35],moonColor:0xa9c2ff,moonPower:1.5,env:1.0,sky:.5, hemi:[0x6f86c0,0x2a3326,.42],fog:[0x141c30,1800,5200],rotation:0},
+  sky_overcast:{moon:[.4,.7,-.45],  moonColor:0xb8c4d8,moonPower:1.1,env:.8,sky:.32,hemi:[0x7a88a0,0x2c2f2a,.42], fog:[0x1a2028,1300,4400],rotation:0},
+  sky_moonrise:{moon:[.7,.36,.5],   moonColor:0xffd9b0,moonPower:1.7,env:.85,sky:.5, hemi:[0x8088b0,0x3a3028,.4], fog:[0x1c2030,1700,5000],rotation:0},
+  interior:    {env:.22,rotation:0},
+};
 export async function loadEnvironment(renderer,scene,url,{background=false,intensity=1,backgroundIntensity=1,rotation=0,also=[]}={}){
   let entry=envCache.get(url);
   if(!entry){
-    const hdr=await new HDRLoader().loadAsync(url);hdr.mapping=THREE.EquirectangularReflectionMapping;
+    const hdr=await new HDRLoader().setDataType(THREE.FloatType).loadAsync(url);hdr.mapping=THREE.EquirectangularReflectionMapping;
+    // A moon or lamp in the picture is thousands of times brighter than the rest: cap it, or every glossy surface mirrors a white blot.
+    const px=hdr.image.data;for(let i=0;i<px.length;i++)if(px[i]>6)px[i]=6;hdr.needsUpdate=true;
     const pmrem=new THREE.PMREMGenerator(renderer),env=pmrem.fromEquirectangular(hdr).texture;pmrem.dispose();
     envCache.set(url,entry={hdr,env});
   }
   for(const s of [scene,...also]){s.environment=entry.env;s.environmentIntensity=intensity;s.environmentRotation.set(0,rotation,0);}
-  if(background){scene.background=entry.hdr;scene.backgroundIntensity=backgroundIntensity;scene.backgroundRotation.set(0,rotation,0);}
+  if(background){
+    const sky=typeof background==='string'?await new THREE.TextureLoader().loadAsync(background).then(t=>{t.mapping=THREE.EquirectangularReflectionMapping;t.colorSpace=THREE.SRGBColorSpace;return t;}).catch(()=>entry.hdr):entry.hdr;
+    scene.background=sky;scene.backgroundIntensity=backgroundIntensity;scene.backgroundRotation.set(0,rotation,0);
+  }
   return entry;
 }

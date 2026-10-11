@@ -48,5 +48,5 @@ export function buildWharf(){
     mid:[[-1100,-200],[-800,0],[-520,0],[0,100],[520,0],[800,0],[1100,200]],
     south:[[-1100,600],[-860,545],[-560,545],[0,440],[560,545],[860,545],[1100,600]]};
   for(const [lane,pts] of Object.entries(lanes))pts.forEach((p,i)=>k.entity({type:'waypoint',lane,index:i,position:[p[0],0,p[1]]}));
-  return {kit:k,links:[],start:[],sky:0x2c3848};
+  return {kit:k,links:[],start:[],env:'sky_overcast',sky:0x2c3848};
 }
