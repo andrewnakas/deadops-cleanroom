@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { assetManager } from './runtime-assets.js';
+import { TIERS, currentTier } from './gfx.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // CC0 glTF models (see assets/LICENSES.csv). Each model is normalised once to a
@@ -52,9 +53,11 @@ const GRIT_GLSL=`
 float gtHash(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float gtNoise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   return mix(mix(mix(gtHash(i),gtHash(i+vec3(1,0,0)),f.x),mix(gtHash(i+vec3(0,1,0)),gtHash(i+vec3(1,1,0)),f.x),f.y),mix(mix(gtHash(i+vec3(0,0,1)),gtHash(i+vec3(1,0,1)),f.x),mix(gtHash(i+vec3(0,1,1)),gtHash(i+vec3(1,1,1)),f.x),f.y),f.z);}
-float gtFbm(vec3 p){return gtNoise(p)*.6+gtNoise(p*2.3+5.)*.28+gtNoise(p*5.1+11.)*.12;}`;
+float gtFbm(vec3 p){return gtNoise(p)*.66+gtNoise(p*2.6+5.)*.34;}`;
 export function gritty(material,{desat=.6,dirt=.5,blood=0,freq=6,seed=0,tone=0xffffff}={}){
   material.roughness=Math.max(material.roughness??.8,.72);material.metalness=Math.min(material.metalness??0,.1);material.flatShading=false;
+  // the low tier keeps the muted colour but skips the per-pixel noise
+  if(!TIERS[currentTier.last].post){material.color.multiply(new THREE.Color(tone)).multiplyScalar(1-dirt*.25);return material;}
   material.onBeforeCompile=shader=>{
     Object.assign(shader.uniforms,{gtDesat:{value:desat},gtDirt:{value:dirt},gtBlood:{value:blood},gtFreq:{value:freq},gtSeed:{value:seed},gtTone:{value:new THREE.Color(tone)}});
     shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 gtPos;').replace('#include <begin_vertex>','#include <begin_vertex>\ngtPos=position;');

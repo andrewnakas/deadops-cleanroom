@@ -32,6 +32,8 @@ const Grade={
 // Ambient occlusion sees only solid surfaces: sprites, glows and other see-through things are hidden
 // while its depth and normal buffer is drawn, or every puff of smoke would cast a dark halo.
 class WorldAO extends GTAOPass {
+  // half resolution: the occlusion is soft, and this is the most expensive pass per pixel
+  setSize(w,h){super.setSize(Math.ceil(w/2),Math.ceil(h/2));}
   _overrideVisibility(){const cache=this._visibilityCache;this.scene.traverse(o=>{if(!o.visible)return;const m=o.material;
     if(o.isPoints||o.isLine||o.isSprite||o.userData.noAO||(m&&!Array.isArray(m)&&(m.transparent||m.depthWrite===false))){o.visible=false;cache.push(o);}});}
 }
@@ -52,7 +54,7 @@ export class Pipeline {
     const c=this.composer=new EffectComposer(r,target);
     c.addPass(new RenderPass(this.scene,this.camera));
     if(T.ao){
-      const ao=this.ao=new WorldAO(this.scene,this.camera,size.x,size.y,undefined,{radius:26,distanceExponent:1.4,thickness:1.6,distanceFallOff:1,scale:1.15,samples:12,screenSpaceRadius:false},{lumaPhi:10,depthPhi:6,normalPhi:3,radius:4,radiusExponent:1,rings:2,samples:12});
+      const ao=this.ao=new WorldAO(this.scene,this.camera,Math.ceil(size.x/2),Math.ceil(size.y/2),undefined,{radius:26,distanceExponent:1.4,thickness:1.6,distanceFallOff:1,scale:1.15,samples:12,screenSpaceRadius:false},{lumaPhi:10,depthPhi:6,normalPhi:3,radius:4,radiusExponent:1,rings:2,samples:12});
       ao.blendIntensity=.9;c.addPass(ao);
     }
     this.viewPass=new RenderPass(this.viewScene,this.viewCamera);this.viewPass.clear=false;this.viewPass.clearDepth=true;c.addPass(this.viewPass);
@@ -66,8 +68,8 @@ export class Pipeline {
   // On 'auto', three seconds of slow frames step the tier down once for the session.
   watch(dt){
     if(!autoQuality()||this.mobile||document.hidden)return;
-    if(dt>1/38){this.slow+=dt;this.fast=0;}else{this.fast+=dt;if(this.fast>.5)this.slow=0;}
-    if(this.slow>3){this.slow=0;if(lowerCeiling())this.build();}
+    if(dt>1/30){this.slow+=dt;this.fast=0;}else{this.fast+=dt;if(this.fast>.5)this.slow=0;}
+    if(this.slow>4){this.slow=0;if(lowerCeiling())this.build();}
   }
   render(dt,{view=true}={}){
     this.time+=dt;this.watch(dt);const r=this.renderer;

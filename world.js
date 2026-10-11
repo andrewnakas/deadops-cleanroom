@@ -22,8 +22,9 @@ const SURFACES={tiles:{tint:0x9a9284,scale:48,env:.35},plaster:{tint:0x9a948a,sc
 const WEATHER_GLSL=`
 float gsHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float gsNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gsHash(i),gsHash(i+vec2(1.,0.)),f.x),mix(gsHash(i+vec2(0.,1.)),gsHash(i+vec2(1.,1.)),f.x),f.y);}
-float gsFbm(vec2 p){return gsNoise(p)*.55+gsNoise(p*2.7+3.1)*.3+gsNoise(p*7.3+9.7)*.15;}`;
+float gsFbm(vec2 p){return gsNoise(p)*.64+gsNoise(p*2.9+3.1)*.36;}`;
 function weathered(material,amount=1){
+  if(!TIERS[currentTier.last].post)return material;
   material.onBeforeCompile=shader=>{
     shader.uniforms.gsWear={value:amount};
     shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 gsPos;').replace('#include <begin_vertex>','#include <begin_vertex>\ngsPos=(modelMatrix*vec4(transformed,1.)).xyz;');
@@ -171,7 +172,18 @@ export class World {
     if(leaving&&s.level<.03){s.entry=s.want;s.level=0;if(s.entry){const l=s.light,e=s.entry;l.position.copy(e.position);l.color.copy(e.color);l.distance=e.distance;if(l.isSpotLight)l.target.position.set(e.position.x,e.position.y-100,e.position.z);}}
     return !!s.entry;
   }
+  // Machine glows join the pool instead of each costing a light in every shader: the machine's own
+  // light object stays as the place game code writes an intensity to, but it is no longer in the scene.
+  _adoptLights(){
+    this.adopted=true;this.scene.updateMatrixWorld(true);
+    for(const src of [...[...this.machines.values()].map(m=>m.userData.light),this.refinery?.userData.light].filter(l=>l?.isPointLight)){
+      const position=src.getWorldPosition(new THREE.Vector3());src.removeFromParent();
+      this.lights.push({position,color:src.color,base:0,distance:src.distance*1.6,share:1,bulb:null,fitting:false,flicker:0,source:src,fixed:true});
+    }
+  }
   updateLights(dt,eye,level=1){
+    if(!this.adopted)this._adoptLights();
+    for(const e of this.lights)if(e.source)e.base=e.source.intensity;
     this.lightLevel=THREE.MathUtils.damp(this.lightLevel,level,3,dt);this.lightClock=(this.lightClock??0)+dt;
     if((this.lightScan=(this.lightScan??0)-dt)<=0){
       this.lightScan=.35;
@@ -182,7 +194,7 @@ export class World {
     }
     for(const e of this.lights)e.share=1;
     for(const s of this.shadowSpots){if(this._slide(s,dt)){s.entry.share=1-.62*s.level;s.light.intensity=s.entry.base*.93*s.level*this.lightLevel;}else s.light.intensity=0;}
-    for(const s of this.pointPool){if(this._slide(s,dt)){const f=1+Math.sin(this.lightClock*9+s.entry.flicker)*.015;s.light.intensity=s.entry.base*s.entry.share*s.level*this.lightLevel*f;}else s.light.intensity=0;}
+    for(const s of this.pointPool){if(this._slide(s,dt)){const f=1+Math.sin(this.lightClock*9+s.entry.flicker)*.015;s.light.intensity=s.entry.base*s.entry.share*s.level*(s.entry.fixed?1:this.lightLevel)*f;}else s.light.intensity=0;}
     for(const e of this.lights)if(e.bulb)e.bulb.material.emissiveIntensity=.6+5.4*this.lightLevel;
   }
   update(dt,session){
