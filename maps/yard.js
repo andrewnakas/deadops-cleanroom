@@ -5,7 +5,7 @@ import { MapKit } from '../map-kit.js';
 export function buildYard(){
   const k=new MapKit(),W=1500,D=900;
   // ground: concrete apron with a service road through the warehouse
-  k.box(-W-12,-12,-D-12,W+12,0,D+12,'concrete');
+  k.box(-W-12,-12,-D-12,W+12,0,D+12,'concrete_worn');
   k.box(-W,0,-70,W,1,70,'asphalt',{uvScale:200});
   // perimeter: brick walls, plus invisible clip above
   for(const [a,b] of [[[-W-12,0,-D-12],[W+12,160,-D]],[[-W-12,0,D],[W+12,160,D+12]],[[-W-12,0,-D],[-W,160,D]],[[W,0,-D],[W+12,160,D]]])k.box(...a,...b,'bricks');
@@ -24,21 +24,30 @@ export function buildYard(){
   k.box(-90,40,-800,90,100,-720,'planks');k.box(-380,40,-700,-300,84,-640,'paintedwood');k.box(300,40,-700,380,84,-640,'paintedwood');
   k.box(-960,0,-860,-840,110,-760,'siding');k.box(840,0,-860,960,110,-760,'siding');
   // south: two staggered rows of freight containers
-  const box=(x,z,mat)=>k.box(x-120,0,z-50,x+120,100,z+50,mat);
-  box(-900,530,'carpaint');box(-300,530,'carpaint_b');box(300,530,'carpaint');box(900,530,'carpaint_b');
-  box(-600,750,'carpaint_b');box(0,750,'carpaint');box(600,750,'carpaint_b');
+  const box=(x,z,mat)=>k.box(x-120,0,z-50,x+120,100,z+50,mat,{uvScale:70});
+  box(-900,530,'container');box(-300,530,'container_b');box(300,530,'container');box(900,530,'container_b');
+  box(-600,750,'container_b');box(0,750,'container');box(600,750,'container_b');
   // flanks: parked trucks, low walls and yard fences with gaps
-  const truck=(x,z,mat)=>{k.box(x-100,0,z-40,x+100,56,z+40,mat);k.box(x-100,56,z-36,x-30,84,z+36,'glass');};
+  const truck=(x,z,mat)=>{k.box(x-100,0,z-40,x+100,56,z+40,mat,{invisible:true});k.box(x-100,56,z-36,x-30,84,z+36,'glass',{invisible:true});k.prop('covered_car',[x,0,z],{yaw:Math.PI/2,scale:1.16});};
   truck(-800,-210,'carpaint');truck(800,210,'carpaint_b');
   k.box(-650,0,110,-626,52,320,'bricks');k.box(626,0,-320,650,52,-110,'bricks');
   k.wallX(-430,-1150,-700,0,72,'planks',[[-960,-880,0,72]],6);k.wallX(-430,700,1150,0,72,'planks',[[880,960,0,72]],6);
   k.wallX(400,-1150,-700,0,72,'planks',[[-960,-880,0,72]],6);k.wallX(400,700,1150,0,72,'planks',[[880,960,0,72]],6);
   // spawn yards: a gatehouse and a skip for cover
   k.box(-1450,0,-120,-1250,120,120,'siding');k.box(1250,0,-120,1450,120,120,'siding');
-  k.box(-1180,0,250,-1070,60,340,'carpaint_b');k.box(1070,0,-340,1180,60,-250,'carpaint');
+  k.box(-1180,0,250,-1070,60,340,'rust');k.box(1070,0,-340,1180,60,-250,'rust');
   // lights: sodium lamps over the yard, work lights in the warehouse
   k.light([0,105,0],0xffd9a0,1.6,1000);k.light([-270,105,-120],0xffd9a0,1.3,750);k.light([270,105,120],0xffd9a0,1.3,750);k.light([-270,105,150],0xffd9a0,1,650);k.light([270,105,-150],0xffd9a0,1,650);k.light([-900,320,-600],0xffb070,.9,1200);k.light([900,320,600],0xffb070,.9,1200);
   k.light([0,300,-720],0xffe0b0,.8,900);k.light([0,300,640],0xb0c8ff,.8,1100);k.light([-900,300,600],0xb0c8ff,.6,900);k.light([900,300,-600],0xb0c8ff,.6,900);
+  // yard furniture (drawn only): tall lamp posts under the sodium lights, drums, crates and site clutter
+  for(const [x,z,yaw] of [[-900,-640,0],[900,640,Math.PI],[-900,640,0],[900,-640,Math.PI]])k.prop('street_lamp',[x,0,z],{yaw,scale:2});
+  for(const [x,z] of [[-250,-232],[-226,-240],[240,236],[262,228],[-520,-600],[530,-604],[-980,-720],[980,-724],[-660,340],[650,-340]])k.prop('barrel',[x,x*x<3e5&&z*z<7e4?4:0,z],{yaw:x});
+  k.prop('military_crate',[-180,70,-120],{yaw:.2});k.prop('military_crate',[170,70,120],{yaw:-.3});k.prop('wooden_crate',[-290,44,140],{yaw:.4,scale:1.5});k.prop('wooden_crate',[290,44,-140],{yaw:-.2,scale:1.5});
+  k.prop('hand_truck',[-380,4,-200],{yaw:.8});k.prop('hand_truck',[440,40,-700],{yaw:-.6});k.prop('generator',[380,4,200],{yaw:Math.PI});k.prop('jerrycan',[350,4,224],{yaw:.4});k.prop('jerrycan',[-420,40,-650],{yaw:1.1});
+  k.prop('road_barrier',[-560,0,-60],{yaw:Math.PI/2,scale:1.1});k.prop('road_barrier',[560,0,60],{yaw:Math.PI/2,scale:1.1});k.prop('road_barrier',[-1040,0,0],{yaw:Math.PI/2,scale:1.1});k.prop('road_barrier',[1040,0,0],{yaw:Math.PI/2,scale:1.1});
+  k.prop('power_box',[-424,70,180],{yaw:-Math.PI/2,scale:1.5});k.prop('power_box',[424,70,-180],{yaw:Math.PI/2,scale:1.5});k.prop('aircon_unit',[-436,90,-190],{yaw:-Math.PI/2});k.prop('aircon_unit',[436,90,190],{yaw:Math.PI/2});
+  for(const [x,z] of [[-1100,420],[1100,-420],[-760,-450],[770,440]]){k.prop('tyre',[x,3,z],{tilt:[Math.PI/2,0]});k.prop('tyre',[x+4,9,z+3],{tilt:[Math.PI/2,0],yaw:.7});k.prop('trashbag',[x+34,0,z-6],{yaw:x});}
+  k.prop('plastic_crate',[-60,40,-760]);k.prop('plastic_crate',[-60,50,-760],{yaw:.3});k.prop('cardboard_box',[120,40,-780],{scale:1.6,yaw:.5});k.prop('cardboard_box',[150,40,-750],{scale:1.4,yaw:-.4});
   // spawns: two teams, spread along the yard
   for(const [i,z] of [-700,-520,-340,-180,180,340,520,700].entries()){k.entity({type:'spawn',team:0,position:[-1350+(i%2)*80,0,z],yaw:-Math.PI/2});k.entity({type:'spawn',team:1,position:[1350-(i%2)*80,0,z],yaw:Math.PI/2});}
   // lane waypoints for bots (lane, x order west→east)

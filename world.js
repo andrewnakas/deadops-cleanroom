@@ -13,6 +13,8 @@ const SURFACES={tiles:{tint:0x9a9284,scale:48,env:.35},plaster:{tint:0x9a948a,sc
   metal:{tint:0x8a8f96,scale:80,metal:.6},velvet:{tint:0x9a1d22,scale:60},carpet:{tint:0x7a3430,scale:110},bricks:{tint:0x9a7a6a,scale:120},
   woodfloor:{tint:0xa08060,scale:110},concrete:{tint:0x8a8a86,scale:140},asphalt:{tint:0x6a6a6a,scale:160},planks:{tint:0xa88a62,scale:60},
   grass:{tint:0x7a9a5a,scale:120},hedge:{tint:0x3f6a34,scale:80},roof:{tint:0x7a4a3a,scale:90},siding:{tint:0xc8c0a8,scale:100},siding_b:{tex:'siding',tint:0x8aa0b8,scale:100},
+  container:{tex:'corrugated',tint:0x8a3a2c,scale:70,metal:.9},container_b:{tex:'corrugated',tint:0x2f5a7a,scale:70,metal:.9},rust:{tint:0x9a8a80,scale:90,metal:.6},
+  concrete_worn:{tint:0x9a9890,scale:170},paving:{tint:0x8f8c86,scale:90},
   trim:{tex:'paintedwood',tint:0x4a3a2c,scale:60,rough:.8},trim_light:{tex:'paintedwood',tint:0xcfcabb,scale:60},
   glass:{plain:0x9fc8d8,opacity:.28,rough:.05,env:1.4},water:{plain:0x12303c,opacity:.86,rough:.04,env:1.6},carpaint:{plain:0x6a1c18,paint:true},carpaint_b:{plain:0x1c3458,paint:true}};
 // Large-scale variation so a tiled texture does not read as a grid: slow world-space noise shifts
