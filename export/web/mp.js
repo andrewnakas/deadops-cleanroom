@@ -25,7 +25,7 @@ const renderer=createRenderer(profile,{exposure:1.2});
 const scene=new THREE.Scene();
 const hemi=new THREE.HemisphereLight(0xc8d4f0,0x4a5a3a,2.0),sun=new THREE.DirectionalLight(0xffc890,1.6);sun.position.set(-1,1.2,.4);scene.add(hemi,sun,sun.target);
 const camera=new THREE.PerspectiveCamera(78,innerWidth/innerHeight,1,9000);camera.rotation.order='YXZ';scene.add(camera);
-const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);viewScene.add(new THREE.AmbientLight(0xd8d0c0,1.6));const vl=new THREE.DirectionalLight(0xffefc8,2.2);vl.position.set(.5,2,1);viewScene.add(vl);
+const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);viewScene.add(new THREE.AmbientLight(0xc8d0e0,.7));const vl=new THREE.DirectionalLight(0xdfe6ff,2.0);vl.position.set(.5,2,1);viewScene.add(vl);
 const pipeline=new Pipeline({renderer,scene,camera,viewScene,viewCamera,mobile:profile.mobile});
 const [base,mp]=await Promise.all([fetch('data/game.json').then(r=>r.json()),fetch('data/mp.json').then(r=>r.json())]);
 const WEAPONS={};for(const id of [...mp.primaries,...mp.secondaries]){WEAPONS[id]={...base.weapons[id],...mp.weapons[id],id,upgrade:undefined};WEAPONS[id].fireType??=WEAPONS[id].automatic?'Full Auto':'Single Shot';}
@@ -37,7 +37,7 @@ const map={suburb:buildSuburb,yard:buildYard,wharf:buildWharf}[mapId]();scene.ba
 const rig=ENVIRONMENTS[map.env]??null;
 async function lightArena(){
   if(!rig)return;
-  await loadEnvironment(renderer,scene,`env/${map.env}.hdr`,{background:`env/${map.env}_sky.jpg`,intensity:rig.env,backgroundIntensity:rig.sky,rotation:rig.rotation,also:[viewScene]});
+  await loadEnvironment(renderer,scene,`env/${map.env}.hdr`,{background:`env/${map.env}_sky.jpg`,intensity:rig.env,backgroundIntensity:rig.sky,rotation:rig.rotation,also:[viewScene],alsoIntensity:1.2});
   hemi.color.set(rig.hemi[0]);hemi.groundColor.set(rig.hemi[1]);hemi.intensity=rig.hemi[2];sun.color.set(rig.moonColor);sun.intensity=rig.moonPower;scene.fog=new THREE.Fog(rig.fog[0],rig.fog[1],rig.fog[2]);
   const box=new THREE.Box3().setFromObject(world.static),c=box.getCenter(new THREE.Vector3()),r=box.getSize(new THREE.Vector3()).length()/2,dir=new THREE.Vector3(...rig.moon).normalize();
   sun.target.position.copy(c);sun.position.copy(c).addScaledVector(dir,r*1.5);const sc=sun.shadow.camera;sc.left=sc.bottom=-r;sc.right=sc.top=r;sc.near=r*.2;sc.far=r*3;sc.updateProjectionMatrix();

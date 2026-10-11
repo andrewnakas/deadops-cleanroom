@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { assetManager } from './runtime-assets.js';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // CC0 glTF models (see assets/LICENSES.csv). Each model is normalised once to a
 // target size in game units and its clips are indexed by short name.
@@ -14,6 +15,23 @@ export function loadAsset(url){
     return {url,scene:gltf.scene,clips,sizes:new Map()};
   }));
   return cache.get(url);
+}
+// Flat-coloured gun models get machined-looking surfaces: rounded shading across soft edges and a
+// material chosen from the paint colour (dark = blued steel, brown = oiled wood, else polymer).
+export function refineGun(asset){
+  if(asset.refined)return asset;asset.refined=true;const hsl={};
+  asset.scene.traverse(o=>{
+    if(!o.isMesh||o.isSkinnedMesh)return;
+    try{o.geometry=toCreasedNormals(o.geometry,.7);}catch{}
+    o.material=[o.material].flat().map(m=>{
+      if(m.map||m.normalMap)return m;const c=m.clone();c.color.getHSL(hsl);
+      if(hsl.l<.2||hsl.s<.12){c.metalness=.86;c.roughness=hsl.l<.2?.36:.3;c.color.multiplyScalar(hsl.l<.2?1.1:.42);}
+      else if(hsl.h>.03&&hsl.h<.13){c.metalness=0;c.roughness=.5;c.color.multiplyScalar(.7);}
+      else{c.metalness=.15;c.roughness=.55;c.color.multiplyScalar(.8);}
+      c.envMapIntensity=.9;return c;});
+    if(o.material.length===1)o.material=o.material[0];
+  });
+  return asset;
 }
 // Clone and scale so the chosen axis spans `size` units ('y' height, 'x'/'z' length, 'max' longest side).
 export function instance(asset,size,axis='y'){

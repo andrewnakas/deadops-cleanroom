@@ -1,21 +1,37 @@
 import * as THREE from 'three';
-import { loadAsset, instance } from './models.js';
+import { loadAsset, instance, refineGun } from './models.js';
 import { bottle } from './props.js';
 import { flashTexture } from './fx.js';
 
 // First-person weapon: CC0 gun model held by procedural arms. Every pose (raise,
 // fire, reload, sprint, aim, knife, drink) is animated in code, so no clip data is needed.
 const ease=t=>t*t*(3-2*t);
-const sleeve=new THREE.MeshStandardMaterial({color:0x3b4334,roughness:.9}),skin=new THREE.MeshStandardMaterial({color:0xc69a7a,roughness:.7}),glove=new THREE.MeshStandardMaterial({color:0x2a2622,roughness:.8});
+// Arm materials: a woven field-jacket sleeve, a stitched leather glove with a hard knuckle guard.
+const weave=(()=>{const t=new THREE.TextureLoader().load('textures-mobile/velvet_normal.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,7);return t;})();
+const sleeve=new THREE.MeshStandardMaterial({color:0x20241c,roughness:.95,normalMap:weave,normalScale:new THREE.Vector2(1.6,1.6),envMapIntensity:.4}),skin=new THREE.MeshStandardMaterial({color:0xb98a6c,roughness:.62});
+const glove=new THREE.MeshStandardMaterial({color:0x0f0e0d,roughness:.82,normalMap:weave,normalScale:new THREE.Vector2(.5,.5),envMapIntensity:.35}),guard=new THREE.MeshStandardMaterial({color:0x161718,roughness:.5,metalness:.2,envMapIntensity:.5}),strapMat=new THREE.MeshStandardMaterial({color:0x14120f,roughness:.5});
+const lathe=(pts,seg=22)=>{const g=new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg);g.rotateX(-Math.PI/2);return g;};
 function arm(){
-  const g=new THREE.Group(),fore=new THREE.Mesh(new THREE.CylinderGeometry(.03,.038,.3,10),sleeve);fore.rotation.x=Math.PI/2;fore.position.z=.17;
-  const cuff=new THREE.Mesh(new THREE.CylinderGeometry(.036,.036,.03,10),skin);cuff.rotation.x=Math.PI/2;cuff.position.z=.03;
-  const hand=new THREE.Mesh(new THREE.BoxGeometry(.06,.034,.075),glove);hand.position.z=-.02;
-  // curled fingers and a thumb so the grip reads as a hand rather than a block
-  const fingers=new THREE.Group();for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.012,.014,.05),glove);f.position.set(-.021+i*.014,-.022,-.058);f.rotation.x=.9;const tip=new THREE.Mesh(new THREE.BoxGeometry(.012,.013,.03),glove);tip.position.set(0,-.016,-.02);tip.rotation.x=1.1;f.add(tip);fingers.add(f);}
-  const thumb=new THREE.Mesh(new THREE.BoxGeometry(.016,.016,.045),glove);thumb.position.set(.036,-.004,-.04);thumb.rotation.set(.3,-.5,0);
-  const strap=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.018,10),new THREE.MeshStandardMaterial({color:0x1c1a17,roughness:.6}));strap.rotation.x=Math.PI/2;strap.position.z=.05;
-  g.add(fore,cuff,hand,fingers,thumb,strap);g.userData.fingers=fingers;return g;
+  const g=new THREE.Group();
+  // forearm: wrist at z=.03 swelling to the elbow at z=.36, with a gathered cuff
+  const fore=new THREE.Mesh(lathe([[.0,.028],[.03,.03],[.032,.06],[.037,.12],[.043,.2],[.046,.28],[.044,.36],[.0,.37]]),sleeve);fore.scale.set(1,.9,-1);
+  const cuff=new THREE.Mesh(lathe([[.031,.0],[.0345,.004],[.0355,.016],[.0345,.03],[.031,.034]]),sleeve);cuff.scale.set(1,.9,-1);cuff.position.z=.022;
+  const wrist=new THREE.Mesh(new THREE.CylinderGeometry(.026,.029,.03,18),skin);wrist.rotation.x=Math.PI/2;wrist.scale.x=1.12;wrist.position.z=.018;
+  const strap=new THREE.Mesh(new THREE.CylinderGeometry(.0305,.0305,.016,20),strapMat);strap.rotation.x=Math.PI/2;strap.scale.x=1.1;strap.position.z=.012;
+  // hand: rounded palm, a knuckle guard, four two-joint fingers curled round the grip and a thumb
+  const palm=new THREE.Mesh(new THREE.SphereGeometry(.5,20,14),glove);palm.scale.set(.062,.028,.08);palm.position.set(0,-.002,-.024);
+  const plate=new THREE.Mesh(new THREE.SphereGeometry(.5,16,10,0,Math.PI*2,0,Math.PI/2),guard);plate.scale.set(.054,.012,.026);plate.position.set(-.001,.011,-.05);
+  const fingers=new THREE.Group();
+  for(let i=0;i<4;i++){
+    const len=[.03,.034,.032,.026][i],f=new THREE.Group();f.position.set(-.0225+i*.015,-.006,-.058);f.rotation.x=1.05;
+    const a=new THREE.Mesh(new THREE.CapsuleGeometry(.0064,len,5,10),glove);a.rotation.x=Math.PI/2;a.position.z=-len/2;
+    const j=new THREE.Group();j.position.z=-len-.004;j.rotation.x=1.25;
+    const b=new THREE.Mesh(new THREE.CapsuleGeometry(.0058,len*.8,5,10),glove);b.rotation.x=Math.PI/2;b.position.z=-len*.4;j.add(b);f.add(a,j);fingers.add(f);
+  }
+  const thumb=new THREE.Group();thumb.position.set(.031,-.004,-.022);thumb.rotation.set(.35,-.75,0);
+  const t1=new THREE.Mesh(new THREE.CapsuleGeometry(.0074,.026,5,10),glove);t1.rotation.x=Math.PI/2;t1.position.z=-.014;
+  const t2=new THREE.Mesh(new THREE.CapsuleGeometry(.0066,.02,5,10),glove);t2.rotation.x=Math.PI/2;t2.position.set(0,-.004,-.04);t2.rotation.z=.2;thumb.add(t1,t2);
+  g.add(fore,cuff,wrist,strap,palm,plate,fingers,thumb);g.userData.fingers=fingers;return g;
 }
 export class ViewModel {
   constructor(scene,data,audio){
@@ -23,7 +39,7 @@ export class ViewModel {
     this.holder=new THREE.Group();this.pivot.add(this.holder);
     this.right=arm();this.left=arm();this.holder.add(this.right,this.left);
     this.knife=new THREE.Group();const blade=new THREE.Mesh(new THREE.BoxGeometry(.012,.03,.2),new THREE.MeshStandardMaterial({color:0xcfd4d8,metalness:.9,roughness:.25}));blade.position.z=-.12;
-    const grip=new THREE.Mesh(new THREE.BoxGeometry(.022,.032,.1),glove);this.knife.add(blade,grip);this.knife.visible=false;this.pivot.add(this.knife);
+    const grip=new THREE.Mesh(new THREE.BoxGeometry(.022,.032,.1),strapMat);this.knife.add(blade,grip);this.knife.visible=false;this.pivot.add(this.knife);
     this.flash=new THREE.Sprite(new THREE.SpriteMaterial({map:flashTexture(),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false,toneMapped:false}));this.flash.visible=false;this.flash.renderOrder=5;this.holder.add(this.flash);
     this.flashLight=new THREE.PointLight(0xffc276,0,3,2);this.holder.add(this.flashLight);this.flashLeft=0;
     this.mag=new THREE.Mesh(new THREE.BoxGeometry(.022,.07,.04),new THREE.MeshStandardMaterial({color:0x1b1c1e,roughness:.5,metalness:.4}));this.mag.visible=false;this.holder.add(this.mag);
@@ -35,7 +51,7 @@ export class ViewModel {
   async equip(def){
     const key=def.id+(def.upgraded?':up':'');if(this.currentId===key&&this.ready)return;this.currentId=key;this.ready=false;const token=++this.token;
     const asset=await loadAsset(def.view.model);if(token!==this.token)return;
-    this.gun?.removeFromParent();
+    this.gun?.removeFromParent();refineGun(asset);
     const gun=instance(asset,def.view.length*.85,'max'),b=gun.userData.bounds;
     // CC0 gun models point down +X; turn them to -Z (away from the camera) and centre the grip.
     gun.userData.inner.position.set(-(b.min.x+b.max.x)/2,-(b.min.y+b.max.y)/2,-(b.min.z+b.max.z)/2);
