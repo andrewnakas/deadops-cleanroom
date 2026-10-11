@@ -6,26 +6,31 @@ import { settings, qualityTier } from './settings.js';
 // the shadow setup and the texture loader. `pixels` caps the drawing buffer whatever the screen is.
 export const TIER_ORDER=['low','medium','high','ultra'];
 export const TIERS={
-  low:   {lights:4,ratio:1,  pixels:1.3e6,post:false,msaa:0,bloom:0,  ao:false,sharpen:0,  shadow:0,   shadowLights:0,softShadows:false,tex:512, aniso:4, shafts:false},
-  medium:{lights:6,ratio:1.5,pixels:2.2e6,post:true, msaa:0,bloom:.22,ao:false,sharpen:.3, shadow:1024,shadowLights:1,softShadows:false,tex:1024,aniso:8, shafts:true},
-  high:  {lights:8,ratio:2,  pixels:4.2e6,post:true, msaa:4,bloom:.28,ao:true, sharpen:.4, shadow:2048,shadowLights:3,softShadows:true, tex:1024,aniso:16,shafts:true},
-  ultra: {lights:10,ratio:2.5,pixels:9e6,  post:true, msaa:4,bloom:.3, ao:true, sharpen:.45,shadow:4096,shadowLights:4,softShadows:true, tex:2048,aniso:16,shafts:true},
+  low:   {lights:3,ratio:1,  pixels:1.3e6,post:false,msaa:0,bloom:0,  ao:false,sharpen:0,  shadow:0,   shadowLights:0,softShadows:false,tex:512, aniso:4, shafts:false},
+  medium:{lights:5,ratio:1.5,pixels:2.2e6,post:true, msaa:0,bloom:.22,ao:false,sharpen:.3, shadow:1024,shadowLights:1,softShadows:false,tex:1024,aniso:8, shafts:true},
+  high:  {lights:7,ratio:2,  pixels:4.2e6,post:true, msaa:4,bloom:.28,ao:true, sharpen:.4, shadow:2048,shadowLights:2,softShadows:true, tex:1024,aniso:16,shafts:true},
+  ultra: {lights:9,ratio:2.5,pixels:9e6,  post:true, msaa:4,bloom:.3, ao:true, sharpen:.45,shadow:4096,shadowLights:3,softShadows:true, tex:2048,aniso:16,shafts:true},
 };
 // A session-only ceiling set by the frame-time watchdog (never stored: the player's choice stays theirs).
 let ceiling=TIER_ORDER.length-1;
 export const lowerCeiling=()=>{const now=TIER_ORDER.indexOf(currentTier.last);if(now<=0)return false;ceiling=now-1;return true;};
-export function currentTier(mobile){const t=qualityTier(mobile);return currentTier.last=TIER_ORDER[Math.min(TIER_ORDER.indexOf(t),ceiling)]??'low';}
+// 'auto' on a desktop starts from the graphics chip: integrated chips begin on medium. `?gfx=high` forces a tier.
+let autoDesktop='high';const forced=new URLSearchParams(globalThis.location?.search??'').get('gfx');
+export function currentTier(mobile){const t=TIERS[forced]?forced:settings.quality==='auto'&&!mobile?autoDesktop:qualityTier(mobile);return currentTier.last=TIER_ORDER[Math.min(TIER_ORDER.indexOf(t),ceiling)]??'low';}
 currentTier.last='low';
 export const tierInfo=mobile=>TIERS[currentTier(mobile)];
-export const autoQuality=()=>settings.quality==='auto'&&!navigator.webdriver;
+export const autoQuality=()=>settings.quality==='auto'&&!forced&&!navigator.webdriver;
 export function pixelRatio(tier,w=innerWidth,h=innerHeight){const t=TIERS[tier];return Math.max(.5,Math.min(devicePixelRatio,t.ratio,Math.sqrt(t.pixels/Math.max(1,w*h))));}
 
 export function createRenderer(profile,{exposure=1.1}={}){
-  const tier=currentTier(profile.mobile);
   const renderer=new THREE.WebGLRenderer({antialias:!profile.mobile,powerPreference:profile.mobile?'default':'high-performance'});
+  renderer.userData={};
+  try{const gl=renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info'),chip=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'';
+    if(/Intel|UHD|HD Graphics|Iris|SwiftShader|llvmpipe|Mali|Adreno|PowerVR|Microsoft Basic/i.test(chip)&&!/Arc\(TM\)|Arc A\d|Arc B\d/i.test(chip))autoDesktop='medium';renderer.userData.chip=chip;}catch{}
+  const tier=currentTier(profile.mobile);
   renderer.setPixelRatio(pixelRatio(tier));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=exposure;renderer.autoClear=false;
-  renderer.userData={mobile:profile.mobile,anisotropy:Math.min(TIERS[tier].aniso,renderer.capabilities.getMaxAnisotropy())};
+  Object.assign(renderer.userData,{mobile:profile.mobile,anisotropy:Math.min(TIERS[tier].aniso,renderer.capabilities.getMaxAnisotropy())});
   document.body.prepend(renderer.domElement);
   return renderer;
 }

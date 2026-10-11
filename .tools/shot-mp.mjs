@@ -11,7 +11,7 @@ const browser = await chromium.launch({ executablePath: exe, headless: true, arg
 try {
   for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${port}/`); break; } catch { await new Promise(r => setTimeout(r, 200)); } }
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  await page.goto(`http://127.0.0.1:${port}/mp.html?size=1&diff=recruit&map=${arena}${process.argv[5] ?? ""}`);
+  await page.goto(`http://127.0.0.1:${port}/mp.html?size=1&diff=recruit&map=${arena}&gfx=${process.env.GFX??'high'}${process.argv[5] ?? ""}`);
   await page.waitForFunction(() => globalThis.game?.debug.getState().ready, null, { timeout: 120000 });
   await page.evaluate(() => { game.debug.start(); document.getElementById('menu').hidden = true; document.body.classList.remove('menu-open'); });
   for (const s of script) {

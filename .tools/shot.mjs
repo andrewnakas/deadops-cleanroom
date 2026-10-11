@@ -17,7 +17,7 @@ try {
   page.on('pageerror', e => errors.push(String(e))); page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.type() + ': ' + m.text()); });
   page.on('response', r => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
   const t0 = Date.now();
-  await page.goto(`http://127.0.0.1:${port}/index.html`);
+  await page.goto(`http://127.0.0.1:${port}/index.html?gfx=${process.env.GFX??'high'}`);
   await page.waitForFunction(() => globalThis.game?.debug.getState().ready || document.getElementById('load-label')?.textContent.startsWith('Unable'), null, { timeout: 120000 });
   const boot = (Date.now() - t0) / 1000;
   await page.screenshot({ path: path.join(out, 'menu.png') });
