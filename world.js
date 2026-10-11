@@ -13,6 +13,7 @@ const SURFACES={tiles:{tint:0x9a9284,scale:48,env:.35},plaster:{tint:0x9a948a,sc
   metal:{tint:0x8a8f96,scale:80,metal:.6},velvet:{tint:0x9a1d22,scale:60},carpet:{tint:0x7a3430,scale:110},bricks:{tint:0x9a7a6a,scale:120},
   woodfloor:{tint:0xa08060,scale:110},concrete:{tint:0x8a8a86,scale:140},asphalt:{tint:0x6a6a6a,scale:160},planks:{tint:0xa88a62,scale:60},
   grass:{tint:0x7a9a5a,scale:120},hedge:{tint:0x3f6a34,scale:80},roof:{tint:0x7a4a3a,scale:90},siding:{tint:0xc8c0a8,scale:100},siding_b:{tex:'siding',tint:0x8aa0b8,scale:100},
+  trim:{tex:'paintedwood',tint:0x4a3a2c,scale:60,rough:.8},trim_light:{tex:'paintedwood',tint:0xcfcabb,scale:60},
   glass:{plain:0x9fc8d8,opacity:.28,rough:.05,env:1.4},water:{plain:0x12303c,opacity:.86,rough:.04,env:1.6},carpaint:{plain:0x6a1c18,paint:true},carpaint_b:{plain:0x1c3458,paint:true}};
 // Large-scale variation so a tiled texture does not read as a grid: slow world-space noise shifts
 // brightness and roughness, and a finer layer adds blotches. One shader change shared by all surfaces.
@@ -41,7 +42,7 @@ export class World {
     const T=TIERS[currentTier.last],dir=T.tex<=512?'textures-mobile':'textures';
     const loader=new THREE.TextureLoader(),tex=(url,color=false)=>loader.loadAsync(url).then(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=T.aniso;if(color)t.colorSpace=THREE.SRGBColorSpace;return t;}).catch(()=>null);
     this.materials={};
-    const used=new Set(kit.solids.map(x=>x.mat));
+    const used=new Set([...kit.solids,...kit.decor].map(x=>x.mat));
     await Promise.all(Object.entries(SURFACES).filter(([name])=>used.has(name)).map(async([name,s])=>{
       if(s.plain!==undefined){
         // glass and water mirror the sky; car paint is a clear-coated metallic
@@ -50,7 +51,7 @@ export class World {
       const t=s.tex??name,[map,normalMap,orm]=await Promise.all([tex(`${dir}/${t}_color.jpg`,true),tex(`${dir}/${t}_normal.jpg`),tex(`${dir}/${t}_orm.jpg`)]);
       this.materials[name]=weathered(new THREE.MeshStandardMaterial({color:s.tint,map,normalMap,roughnessMap:orm,aoMap:orm,aoMapIntensity:1,metalnessMap:s.metal?orm:null,roughness:s.rough??1,metalness:s.metal?1:0,normalScale:new THREE.Vector2(s.bump??1,s.bump??1),envMapIntensity:s.env??1}),s.wear??1);
     }));
-    const geos=buildGeometry(kit.solids,{scales:Object.fromEntries(Object.entries(SURFACES).map(([k,s])=>[k,s.scale]))});
+    const geos=buildGeometry([...kit.solids,...kit.decor],{scales:Object.fromEntries(Object.entries(SURFACES).map(([k,s])=>[k,s.scale]))});
     this.static=new THREE.Group();this.static.name='map';
     for(const [mat,geo] of geos){const m=new THREE.Mesh(geo,this.materials[mat]??this.materials.plaster);m.name='map_'+mat;m.matrixAutoUpdate=false;this.static.add(m);}
     this.scene.add(this.static);
@@ -72,6 +73,14 @@ export class World {
       const cup=new THREE.Mesh(shadeGeo,shade);cup.position.y=2;shade.side=THREE.DoubleSide;
       const bulb=new THREE.Mesh(bulbGeo,new THREE.MeshStandardMaterial({color:0x111111,emissive:l.color,emissiveIntensity:6}));bulb.userData.noAO=true;
       fit.add(rod,cup,bulb);this.scene.add(fit);entry.bulb=bulb;p.position.y-=5;
+    }
+    // Set dressing models: loaded once each, cloned per placement, static.
+    this.props=new THREE.Group();this.props.name='props';this.scene.add(this.props);
+    const propAssets=new Map(await Promise.all([...new Set(kit.props.map(p=>p.model))].map(async m=>[m,await loadAsset(`models/props/${m}.glb`).catch(()=>null)])));
+    for(const p of kit.props){
+      const a=propAssets.get(p.model);if(!a)continue;const o=a.scene.clone(),s=39.37*(p.scale??1);
+      o.scale.setScalar(s);o.position.fromArray(p.position);o.rotation.set(p.tilt?.[0]??0,p.yaw??0,p.tilt?.[1]??0,'YXZ');
+      o.traverse(m=>{if(m.isMesh){m.frustumCulled=true;m.castShadow=m.receiveShadow=true;}});o.updateMatrixWorld(true);o.traverse(m=>{m.matrixAutoUpdate=false;});this.props.add(o);
     }
     progress('Boarding up the windows',50);
     const ents=kit.entities;

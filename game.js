@@ -33,7 +33,7 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(0x07080b);scene.f
 const ambient=new THREE.AmbientLight(0x8a90a0,.3);scene.add(ambient,new THREE.HemisphereLight(0x9aa6c0,0x33261e,.4));
 const camera=new THREE.PerspectiveCamera(settings.fov,innerWidth/innerHeight,1,8000);camera.rotation.order='YXZ';
 const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);
-viewScene.add(new THREE.AmbientLight(0xd8d0c0,1.6));const vl=new THREE.DirectionalLight(0xffefc8,2.2);vl.position.set(.5,2,1);viewScene.add(vl);
+viewScene.add(new THREE.AmbientLight(0xd8d0c0,.8));const vl=new THREE.DirectionalLight(0xffefc8,2.4);vl.position.set(.5,2,1);viewScene.add(vl);
 const flashlight=new THREE.SpotLight(0xfff0d8,0,1600,.6,.85,1);camera.add(flashlight);flashlight.position.set(0,0,0);flashlight.target.position.set(0,0,-100);camera.add(flashlight.target);scene.add(camera);
 const muzzle=new THREE.PointLight(0xffc276,0,300,1.4);scene.add(muzzle);
 const pipeline=new Pipeline({renderer,scene,camera,viewScene,viewCamera,mobile:profile.mobile});
@@ -442,7 +442,7 @@ try{
   world.actors=()=>enemies.list;
   powerups=new Powerups(scene,data,audio,(type,at,item)=>{if(coop)coop.onCollect(type,item);else collect(type);});crate=new LuckyCrate(scene,world,data,session,audio,toast);
   const [g,m]=await Promise.all([loadAsset('models/grenade.glb').catch(()=>null),loadAsset('models/landmine.glb').catch(()=>null),enemies.load(),view.load(),audio.load(),powerups.load(),crate.load()]);grenadeModel=g;mineModel=m;
-  await loadEnvironment(renderer,scene,'env/interior.hdr',{intensity:ENVIRONMENTS.interior.env,also:[viewScene]}).catch(e=>console.info('environment skipped',e.message));
+  await loadEnvironment(renderer,scene,'env/interior.hdr',{intensity:ENVIRONMENTS.interior.env,also:[viewScene],alsoIntensity:.7}).catch(e=>console.info('environment skipped',e.message));
   enableShadows(renderer,pipeline.tier,{receivers:[world.static],lights:[flashlight,...world.addShadowSpots(Math.max(0,TIERS[pipeline.tier].shadowLights-1))]});
   api=new Backend((await fetch('data/mp.json').then(r=>r.json()).catch(()=>({}))).backend,query.get('api'));coopMenu();
   const coopRoom=(query.get('join')??query.get('host')??'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);

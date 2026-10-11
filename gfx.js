@@ -41,7 +41,7 @@ export const ENVIRONMENTS={
   sky_moonrise:{moon:[.7,.36,.5],   moonColor:0xffd9b0,moonPower:1.7,env:1.3,sky:.5, hemi:[0x8088b0,0x3a3028,.65], fog:[0x1c2030,1700,5000],rotation:0},
   interior:    {env:.16,rotation:0},
 };
-export async function loadEnvironment(renderer,scene,url,{background=false,intensity=1,backgroundIntensity=1,rotation=0,also=[]}={}){
+export async function loadEnvironment(renderer,scene,url,{background=false,intensity=1,backgroundIntensity=1,rotation=0,also=[],alsoIntensity=1}={}){
   let entry=envCache.get(url);
   if(!entry){
     const hdr=await new HDRLoader().setDataType(THREE.FloatType).loadAsync(url);hdr.mapping=THREE.EquirectangularReflectionMapping;
@@ -50,7 +50,7 @@ export async function loadEnvironment(renderer,scene,url,{background=false,inten
     const pmrem=new THREE.PMREMGenerator(renderer),env=pmrem.fromEquirectangular(hdr).texture;pmrem.dispose();
     envCache.set(url,entry={hdr,env});
   }
-  for(const s of [scene,...also]){s.environment=entry.env;s.environmentIntensity=intensity;s.environmentRotation.set(0,rotation,0);}
+  for(const s of [scene,...also]){s.environment=entry.env;s.environmentIntensity=s===scene?intensity:alsoIntensity;s.environmentRotation.set(0,rotation,0);}
   if(background){
     const sky=typeof background==='string'?await new THREE.TextureLoader().loadAsync(background).then(t=>{t.mapping=THREE.EquirectangularReflectionMapping;t.colorSpace=THREE.SRGBColorSpace;return t;}).catch(()=>entry.hdr):entry.hdr;
     scene.background=sky;scene.backgroundIntensity=backgroundIntensity;scene.backgroundRotation.set(0,rotation,0);

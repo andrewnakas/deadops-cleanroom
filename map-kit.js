@@ -4,7 +4,7 @@ import * as THREE from 'three';
 // The same description feeds the renderer, the collision BVH and the navmesh bake,
 // so what you see is exactly what you walk on.
 export class MapKit {
-  constructor(){this.solids=[];this.decor=[];this.entities=[];this.lights=[];}
+  constructor(){this.solids=[];this.decor=[];this.entities=[];this.lights=[];this.props=[];}
   // Solid axis-aligned box. flags: {mat, nocollide, nonav, tag, uv}
   box(x0,y0,z0,x1,y1,z1,mat='plaster',flags={}){
     const b={type:'box',min:[Math.min(x0,x1),Math.min(y0,y1),Math.min(z0,z1)],max:[Math.max(x0,x1),Math.max(y0,y1),Math.max(z0,z1)],mat,...flags};
@@ -27,10 +27,29 @@ export class MapKit {
       for(const [h0,h1] of cover){if(h0>y)this._wallPiece(axis,c,s,e,y,h0,mat,t,flags);y=Math.max(y,h1);}
       if(y<y1)this._wallPiece(axis,c,s,e,y,y1,mat,t,flags);
     }
+    if(t>=10&&y1-y0>=120&&!flags.invisible&&!flags.notrim)this._trim(axis,c,a0,a1,y0,y1,mat,holes,t);
+  }
+  // Joinery on full-height walls, drawn only (never collided with): skirting on both faces broken at
+  // doorways, a cornice under the ceiling, and a frame with a sill around every opening.
+  _trim(axis,c,a0,a1,y0,y1,mat,holes,t){
+    const tm=/siding/.test(mat)?'trim_light':'trim',f={decorOnly:true},h=t/2;
+    const put=(s,e,b0,b1,d0,d1)=>{if(e-s<.5||b1-b0<.5)return;if(axis==='x')this.box(s,b0,c+d0,e,b1,c+d1,tm,f);else this.box(c+d0,b0,s,c+d1,b1,e,tm,f);};
+    const doors=holes.filter(o=>o[2]<=y0+1).sort((p,q)=>p[0]-q[0]);let s=a0;
+    for(const d of [...doors,[a1,a1]]){for(const side of [-1,1]){put(s,Math.min(d[0],a1),y0,y0+7,side*h-(side<0?1.4:0),side*h+(side>0?1.4:0));}s=Math.max(s,d[1]);}
+    for(const side of [-1,1]){put(a0,a1,y1-5,y1,side*h-(side<0?2.2:0),side*h+(side>0?2.2:0));put(a0,a1,y1-9,y1-5,side*h-(side<0?1:0),side*h+(side>0?1:0));}
+    for(const o of holes){
+      const [p,q,b0,b1]=[Math.max(a0,o[0]),Math.min(a1,o[1]),Math.max(y0,o[2]),Math.min(y1,o[3])],w=4,d=h+1.6;
+      put(p-w,p,b0,b1+w,-d,d);put(q,q+w,b0,b1+w,-d,d);put(p-w,q+w,b1,b1+w,-d,d);
+      if(b0>y0+1)put(p-w-1,q+w+1,b0-3,b0,-d-2.5,d+2.5);
+    }
   }
   _wallPiece(axis,c,s,e,y0,y1,mat,t,flags){
     if(axis==='x')this.box(s,y0,c-t/2,e,y1,c+t/2,mat,flags);else this.box(c-t/2,y0,s,c+t/2,y1,e,mat,flags);
   }
+  // Set dressing: a model from models/props (real-world metres, scaled to inches) standing at `position`.
+  // Drawn only; give it a box with {invisible:true} where it should block movement.
+  // opts: {yaw, scale, tilt:[x,z]}
+  prop(model,position,opts={}){this.props.push({model,position,...opts});}
   entity(e){this.entities.push(e);return e;}
   light(position,color,intensity,distance){this.lights.push({position,color,intensity,distance});}
 }
