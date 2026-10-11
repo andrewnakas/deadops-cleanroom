@@ -731,6 +731,7 @@ try{
   $('load-label').textContent='Building '+arena.name;world=new World(scene,base,map);await world.load((t,p)=>{$('load-label').textContent=t;$('load-progress').style.width=p+'%';},{mapName:mapId});world.setDoors({openDoors:new Set()});await lightArena().catch(e=>console.info('environment skipped',e.message));
   player=new PlayerController(camera,world.physics,{spawn:vector(world.spawns[0].position),spawnIsEye:false,radius:14,height:70,eyeHeight:60,moveSpeed:190,sprintSpeed:285,crouchSpeed:95,gravity:800,jumpHeight:39,fallResetY:-800,maxSubSteps:12,groundSnapSpeed:10});
   view=new ViewModel(viewScene,base,audio);await Promise.all([loadTeams(),view.load(),audio.load()]);
+  {const bodies=[0,1].map(t=>{try{const b=makeBody(t);return b?.isObject3D?b:b?.root??b?.model??b?.mesh??null;}catch{return null;}});world.updateLights(.016,camera.position,1);await pipeline.warm(bodies);for(const b of bodies)b?.removeFromParent();}
   buildMenu();ready=true;$('loading').hidden=true;$('start').disabled=false;$('menu-status').textContent=botsOnly?'Spectating a bots-only match':pad.connected?'Press START to deploy':'Click DEPLOY · Tab shows the scoreboard';
   if(botsOnly){startMatch();setActive(true);}
   loadout.name=saved.name??'';if(params.has('quick'))await quickPlay((params.get('quick').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6))||'PUB');else await goOnline();

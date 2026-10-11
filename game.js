@@ -447,7 +447,9 @@ try{
   api=new Backend((await fetch('data/mp.json').then(r=>r.json()).catch(()=>({}))).backend,query.get('api'));coopMenu();
   const coopRoom=(query.get('join')??query.get('host')??'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
   if(coopRoom){progress('Opening the co-op room',95);await setupCoop(query.get('join')?'client':'host',coopRoom);}
-  await equipView();player.update(.05,{});ready=true;
+  await equipView();player.update(.05,{});
+  {enemies.spawn(new THREE.Vector3(0,-400,0));enemies.spawn(new THREE.Vector3(60,-400,0));enemies.spawn(new THREE.Vector3(120,-400,0),null,'dog');session.spawned++;world.updateLights(.016,camera.position,.75);await pipeline.warm();enemies.reset();session.spawned-=4;}
+  ready=true;
   progress('Ready',100);$('loading').hidden=true;$('start').disabled=contextLost;$('menu-status').textContent=touchControls.mode?'Tap to enter':pad.connected?'Press START to play':'Click to capture the mouse · Esc to pause';
 }catch(error){console.error(error);errors.push(String(error));$('load-label').textContent='Unable to start: '+error.message;$('menu-status').textContent='See the browser console for details';}
 renderer.info.autoReset=false;
