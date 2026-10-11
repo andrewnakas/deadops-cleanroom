@@ -2,6 +2,42 @@
 
 Live: https://andrewnakas.github.io/deadops-cleanroom/ · repo: andrewnakas/deadops-cleanroom
 
+## Graphics pass (2026-10-11)
+Goal from the owner: "a full graphics pass to make this look like a AAA game". Before/after sheets are in
+`artifacts/before/` and `artifacts/s9/` (not committed).
+
+- **One render pipeline for both pages** (`gfx.js`, `post.js`): quality tiers low / medium / high / ultra in one
+  table (`TIERS`), ambient occlusion (half resolution, high and ultra), bloom, sharpening, slight lens fringing,
+  grade. Multiplayer used to draw straight to the screen; it now has all of it plus a Graphics setting in its menu.
+  `?gfx=high` forces a tier. On "Auto", integrated graphics chips start on medium and three to four seconds under
+  30 fps steps the tier down once more for the session.
+- **Lighting:** Poly Haven HDR environments (interior for the cinema, three night skies with a shadowed moon for
+  the arenas). Map lights run through a fixed pool that follows the player (3 to 9 lights by tier), so a map can
+  describe any number without slowing the shaders. Lights under a ceiling get a fitting, a glowing bulb and a
+  faint cone; the nearest ones cast shadows. The flashlight stays on, dimmer, after power-on.
+- **Surfaces:** the 16 ambientCG sets are now 1K with occlusion packed in (`*_orm.jpg`), plus corrugated steel,
+  rust, worn concrete and paving; a 512 px set in `textures-mobile/` for the low tier. A shader breaks up tiling.
+  Glass, water and car paint are reflective.
+- **Geometry and dressing:** walls get skirting, cornices and framed openings automatically (`map-kit.js _trim`,
+  drawn only). 30 Poly Haven props (`models/props`, placed with `k.prop(...)`): chandeliers, sofas, projector,
+  street lamps, covered cars, barrels, crates, generators and so on, in all four maps.
+- **First-person arms** rebuilt (sleeve, glove with fingers, strap); guns get smoothed shading and metal / wood /
+  polymer materials from their paint colours.
+- **Characters:** no realistic CC0 rigged people, undead or guns were found (poly.pizza is all stylised, Poly Haven
+  has none), so the existing models are re-shaded: smooth normals, muted colours, dirt and blood in the shader.
+  This is the weakest part of the look.
+- **Tools:** `tools/fetch_polyhaven.py`, `tools/pack_polyhaven.py`, `.tools/model-bounds.mjs`, `.tools/perf.mjs`;
+  `fetch_ambientcg.py` takes `--size`; the licence gate now also covers `.hdr`.
+- **Frame rate** (headless Edge on this PC's integrated Intel chip, 1280x720): arenas 86 / 46 / 18 fps on low /
+  medium / high; cinema with 12 undead 46 / 32 / 13. High and ultra are meant for a discrete card and were
+  **not measured on one**.
+- **Size:** `export/web` went from 15 MB to about 43 MB.
+
+Not done from the plan: realistic character and gun models (see above; a Poly Haven pistol and rifle were tried and
+dropped: one is posed at an angle, the other came out with scrambled textures after packing), multiplayer effects
+still use their own simple puffs and tracers, the gassed/downed blur is still a CSS filter, no decals, 2K textures
+for ultra, and no change to the rebuilt machine props.
+
 ## Works (2026-10-10)
 - **Zombies mode playable** in the browser: keyboard and mouse, gamepad (standard mapping) and touch.
 - **Original map, "Starlight Picturehouse":** lobby (start), stair hall, balcony, projection booth (power switch),
@@ -148,11 +184,15 @@ through to a rating change in a browser (API-tested only), and nobody has looked
   `D:\n64work\deadops\dl` holds downloads).
 
 ## Next
-1. Visual polish: viewmodel arms and hands, lighting balance after power-on, more set dressing.
-2. Two more original MP arenas. Online play still needs a real two-machine session across the internet
-   (only tested between two browsers on this PC; no TURN relay, so some strict NATs will fail to connect).
+1. Characters and guns: realistic CC0 models need a source (a Sketchfab CC0 download needs the owner's login), or
+   the owner's own models. Until then they stay re-shaded stylised models.
+2. Look at high and ultra on a PC with a discrete graphics card; tune the tier table in `gfx.js` from that.
+3. Multiplayer effects through `Fx`, decals on walls and floors, rebuilt drink machines and crate.
+4. Two more original MP arenas; a real two-machine online session (no TURN relay yet).
 
 ## For the morning
+- Look at both pages on your normal PC (Graphics: High or Ultra) and on a phone; say what still looks wrong.
+- If you have a Sketchfab login or your own character models, that unlocks realistic soldiers and undead.
 - Play co-op with a second device: zombies menu → HOST CO-OP, send the link.
 - Try QUICK PLAY and RANKED from two devices on different networks (this is the untested part).
 - Relay for strict NATs: create a TURN key in the Cloudflare dashboard (Realtime → TURN), then from `worker/`:

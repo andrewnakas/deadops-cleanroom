@@ -71,6 +71,14 @@ export class Pipeline {
     if(dt>1/30){this.slow+=dt;this.fast=0;}else{this.fast+=dt;if(this.fast>.5)this.slow=0;}
     if(this.slow>4){this.slow=0;if(lowerCeiling())this.build();}
   }
+  // Build every shader behind the loading screen, so the first seconds of play do not stall while they
+  // compile. `extra` objects (a soldier of each team, say) are shown to the compiler and taken out again.
+  async warm(extra=[]){
+    const r=this.renderer,added=extra.filter(o=>o?.isObject3D&&!o.parent);for(const o of added)this.scene.add(o);
+    try{r.setRenderTarget(this.composer?.readBuffer??null);await r.compileAsync(this.scene,this.camera);await r.compileAsync(this.viewScene,this.viewCamera);r.setRenderTarget(null);this.render(0);this.render(0);}
+    catch(e){console.info('shader warm-up skipped',e.message);r.setRenderTarget(null);}
+    for(const o of added)this.scene.remove(o);
+  }
   render(dt,{view=true}={}){
     this.time+=dt;this.watch(dt);const r=this.renderer;
     if(!this.composer){r.clear();r.render(this.scene,this.camera);if(view){r.clearDepth();r.render(this.viewScene,this.viewCamera);}return;}
