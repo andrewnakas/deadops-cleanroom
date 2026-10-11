@@ -5,7 +5,7 @@ import { MapKit } from '../map-kit.js';
 export function buildWharf(){
   const k=new MapKit(),W=1500,D=900;
   // ground: concrete quay with a plank market square; water beyond the south wall
-  k.box(-W-12,-12,-D-12,W+12,0,D+12,'concrete');
+  k.box(-W-12,-12,-D-12,W+12,0,D+12,'paving');
   k.box(-520,0,-330,520,1,330,'woodfloor',{uvScale:160});
   k.box(-W,0,770,W,2,D,'water',{nonav:true});k.box(-W,0,750,W,34,770,'bricks');
   // perimeter: brick walls, plus invisible clip above
@@ -29,18 +29,26 @@ export function buildWharf(){
   shed(-760,-360);shed(360,760);
   k.box(-150,0,500,150,46,580,'carpaint');k.box(-90,46,515,90,74,565,'carpaint_b');
   // flanks: vans, hedges and low walls with gaps
-  const van=(x,z,mat)=>{k.box(x-100,0,z-40,x+100,56,z+40,mat);k.box(x-100,56,z-36,x-30,84,z+36,'glass');};
+  const van=(x,z,mat)=>{k.box(x-100,0,z-40,x+100,56,z+40,mat,{invisible:true});k.box(x-100,56,z-36,x-30,84,z+36,'glass',{invisible:true});k.prop('covered_car',[x,0,z],{yaw:Math.PI/2,scale:1.16});};
   van(-820,-330,'carpaint_b');van(820,330,'carpaint');
   k.box(-660,0,-140,-636,52,140,'bricks');k.box(636,0,-140,660,52,140,'bricks');
   k.wallX(-470,-1180,-720,0,70,'hedge',[[-980,-900,0,70]],24);k.wallX(-470,720,1180,0,70,'hedge',[[900,980,0,70]],24);
   k.wallX(360,-1180,-800,0,70,'hedge',[[-1020,-940,0,70]],24);k.wallX(360,800,1180,0,70,'hedge',[[940,1020,0,70]],24);
   // spawn yards: a harbour office and a skip for cover
   k.box(-1450,0,-120,-1250,120,120,'siding_b');k.box(1250,0,-120,1450,120,120,'siding_b');
-  k.box(-1180,0,-330,-1070,60,-240,'carpaint');k.box(1070,0,240,1180,60,330,'carpaint_b');
+  k.box(-1180,0,-330,-1070,60,-240,'rust');k.box(1070,0,240,1180,60,330,'rust');
   // lights: string lamps over the market, lamps in the sheds, cold floodlights on the quay
   k.light([0,170,0],0xffd9a0,1.6,900);k.light([-300,110,-150],0xffc890,1.1,520);k.light([300,110,-150],0xffc890,1.1,520);k.light([-300,110,150],0xffc890,1.1,520);k.light([300,110,150],0xffc890,1.1,520);
   k.light([-560,105,545],0xffd9a0,1.3,620);k.light([560,105,545],0xffd9a0,1.3,620);k.light([0,260,620],0xb0c8ff,.9,1000);
   k.light([0,280,-740],0xffe0b0,.9,1000);k.light([-950,300,-500],0xb0c8ff,.7,1100);k.light([950,300,-500],0xb0c8ff,.7,1100);k.light([-1000,300,500],0xffb070,.7,1000);k.light([1000,300,500],0xffb070,.7,1000);
+  // quayside furniture (drawn only): lamp posts under the floodlights, market stock, boat-shed gear
+  for(const [x,z,yaw] of [[-950,-540,0],[950,-540,Math.PI],[-1000,460,0],[1000,460,Math.PI]])k.prop('street_lamp',[x,0,z],{yaw,scale:2});
+  for(const [x,z,s] of [[-300,-190,-1],[300,-190,-1],[-300,190,1],[300,190,1]]){k.prop('plastic_crate',[x-50,44,z],{yaw:.2});k.prop('plastic_crate',[x-50,54,z],{yaw:.5});k.prop('wooden_crate',[x+40,44,z],{yaw:-.2});k.prop('barrel',[x+112,0,z+s*40]);k.prop('cardboard_box',[x-112,0,z+s*44],{scale:1.5,yaw:x});}
+  for(const x of [-762,-358,358,762]){k.prop('lifebuoy',[x+(x<0?-8:8)*(Math.abs(x)>500?1:-1),96,440],{yaw:Math.PI/2});}
+  for(const m of [-560,560]){k.prop('barrel',[m-150,4,660]);k.prop('barrel',[m-124,4,668]);k.prop('military_crate',[m+120,4,640],{yaw:.3});k.prop('jerrycan',[m+150,4,440],{yaw:.8});k.prop('hand_truck',[m-160,4,440],{yaw:2.2});k.prop('tyre',[m+40,7,470],{tilt:[Math.PI/2,0]});}
+  k.prop('picnic_table',[-520,60,-770],{yaw:Math.PI/2,scale:.9});k.prop('picnic_table',[520,60,-770],{yaw:Math.PI/2,scale:.9});k.prop('barrel',[-200,60,-830]);k.prop('barrel',[210,60,-826]);
+  k.prop('road_barrier',[-700,0,-300],{scale:1.1});k.prop('road_barrier',[700,0,300],{scale:1.1});k.prop('generator',[-1240,0,150],{yaw:Math.PI/2});k.prop('generator',[1240,0,-150],{yaw:-Math.PI/2});
+  for(const [x,z] of [[-640,170],[640,-170],[-1040,-380],[1040,380]]){k.prop('trashbag',[x,0,z],{yaw:x});k.prop('trashbag',[x+22,0,z+8],{yaw:z,scale:1.15});}
   // spawns: two teams, spread along the quay
   for(const [i,z] of [-700,-520,-340,-180,180,340,520,680].entries()){k.entity({type:'spawn',team:0,position:[-1350+(i%2)*80,0,z],yaw:-Math.PI/2});k.entity({type:'spawn',team:1,position:[1350-(i%2)*80,0,z],yaw:Math.PI/2});}
   // lane waypoints for bots (lane, x order west→east)

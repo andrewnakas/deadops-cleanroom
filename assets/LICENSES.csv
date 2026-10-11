@@ -129,3 +129,35 @@ textures/siding_orm.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://
 textures-mobile/siding_color.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
 textures-mobile/siding_normal.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
 textures-mobile/siding_orm.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,"resized to 512px; occlusion, roughness and metalness packed into one image"
+models/props/ammo_box.glb,Ammo Box,Poly Haven (DanKit),CC0-1.0,https://polyhaven.com/a/ammo_box,"simplified, textures 512px WebP"
+models/props/fluorescent_lights.glb,Mounted Fluorescent Lights,Poly Haven (Ulan Cabanilla),CC0-1.0,https://polyhaven.com/a/mounted_fluorescent_lights,"simplified, textures 512px WebP"
+models/props/road_barrier.glb,Concrete Road Barrier 02,Poly Haven (Amal Kumar),CC0-1.0,https://polyhaven.com/a/concrete_road_barrier_02,"simplified, textures 512px WebP"
+models/props/power_box.glb,Power Box 01,"Poly Haven (Rico Cilliers, Yann Kervran)",CC0-1.0,https://polyhaven.com/a/power_box_01,"simplified, textures 512px WebP"
+models/weapons/service_pistol.glb,Service Pistol,Poly Haven (Mateusz Sadek),CC0-1.0,https://polyhaven.com/a/service_pistol,"simplified, textures 1024px WebP"
+models/weapons/bolt_rifle.glb,Bolt Action Rifle 7.62,Poly Haven (Mateusz Sadek),CC0-1.0,https://polyhaven.com/a/bolt_action_rifle_7_62,"simplified, textures 1024px WebP"
+models/weapons/stick_grenade.glb,Stick Grenade,Poly Haven (singaii),CC0-1.0,https://polyhaven.com/a/stick_grenade,"simplified, textures 1024px WebP"
+models/weapons/hatchet.glb,Hatchet,"Poly Haven (James Ray Cock, Ulan Cabanilla)",CC0-1.0,https://polyhaven.com/a/hatchet,"simplified, textures 1024px WebP"
+textures/corrugated_color.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,resized to 1024px
+textures/corrugated_normal.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,resized to 1024px
+textures/corrugated_orm.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,"resized to 1024px; occlusion, roughness and metalness packed into one image"
+textures-mobile/corrugated_color.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,resized to 512px
+textures-mobile/corrugated_normal.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,resized to 512px
+textures-mobile/corrugated_orm.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,"resized to 512px; occlusion, roughness and metalness packed into one image"
+textures/rust_color.jpg,Rust004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Rust004,resized to 1024px
+textures/rust_normal.jpg,Rust004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Rust004,resized to 1024px
+textures/rust_orm.jpg,Rust004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Rust004,"resized to 1024px; occlusion, roughness and metalness packed into one image"
+textures-mobile/rust_color.jpg,Rust004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Rust004,resized to 512px
+textures-mobile/rust_normal.jpg,Rust004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Rust004,resized to 512px
+textures-mobile/rust_orm.jpg,Rust004,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Rust004,"resized to 512px; occlusion, roughness and metalness packed into one image"
+textures/concrete_worn_color.jpg,Concrete031,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Concrete031,resized to 1024px
+textures/concrete_worn_normal.jpg,Concrete031,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Concrete031,resized to 1024px
+textures/concrete_worn_orm.jpg,Concrete031,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Concrete031,"resized to 1024px; occlusion, roughness and metalness packed into one image"
+textures-mobile/concrete_worn_color.jpg,Concrete031,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Concrete031,resized to 512px
+textures-mobile/concrete_worn_normal.jpg,Concrete031,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Concrete031,resized to 512px
+textures-mobile/concrete_worn_orm.jpg,Concrete031,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=Concrete031,"resized to 512px; occlusion, roughness and metalness packed into one image"
+textures/paving_color.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,resized to 1024px
+textures/paving_normal.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,resized to 1024px
+textures/paving_orm.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,"resized to 1024px; occlusion, roughness and metalness packed into one image"
+textures-mobile/paving_color.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,resized to 512px
+textures-mobile/paving_normal.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,resized to 512px
+textures-mobile/paving_orm.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,"resized to 512px; occlusion, roughness and metalness packed into one image"
