@@ -74,3 +74,10 @@ textures/roof_rough.jpg,RoofingTiles013A,ambientCG (Lennart Demes),CC0-1.0,https
 textures/siding_color.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
 textures/siding_normal.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
 textures/siding_rough.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
+env/sky_clear.hdr,Kloppenheim 02 (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/kloppenheim_02_puresky,1k HDR
+env/sky_clear_sky.jpg,Kloppenheim 02 (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/kloppenheim_02_puresky,"tonemapped, resized to 4096x2048"
+env/sky_overcast.hdr,Kloppenheim 07 (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/kloppenheim_07_puresky,1k HDR
+env/sky_overcast_sky.jpg,Kloppenheim 07 (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/kloppenheim_07_puresky,"tonemapped, resized to 4096x2048"
+env/sky_moonrise.hdr,Qwantani Moonrise (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/qwantani_moonrise_puresky,1k HDR
+env/sky_moonrise_sky.jpg,Qwantani Moonrise (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/qwantani_moonrise_puresky,"tonemapped, resized to 4096x2048"
+env/interior.hdr,Creepy Bathroom,Poly Haven (Greg Zaal),CC0-1.0,https://polyhaven.com/a/creepy_bathroom,1k HDR

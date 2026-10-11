@@ -14,7 +14,7 @@ import { Net } from './net.js';
 import { Backend } from './backend.js';
 import { createHub } from './hub.js';
 import { Pipeline, enableShadows } from './post.js';
-import { createRenderer } from './gfx.js';
+import { createRenderer, loadEnvironment, ENVIRONMENTS } from './gfx.js';
 import { settings, setSetting } from './settings.js';
 import { loadProgress, saveProgress, grant, killAwards, levelOf, levelProgress, xpForLevel, unlockLevel, isUnlocked, legalPick, MEDALS, MAX_LEVEL ,CHALLENGES,challengeCount,claimChallenges,canTour,startTour} from './progress.js';
 
@@ -23,7 +23,7 @@ const $=id=>document.getElementById(id),keys=new Set(),audio=new GameAudio(),pad
 const profile=configureAssets();
 const renderer=createRenderer(profile,{exposure:1.2});
 const scene=new THREE.Scene();
-scene.add(new THREE.HemisphereLight(0xc8d4f0,0x4a5a3a,2.0));const sun=new THREE.DirectionalLight(0xffc890,1.6);sun.position.set(-1,1.2,.4);scene.add(sun);
+const hemi=new THREE.HemisphereLight(0xc8d4f0,0x4a5a3a,2.0),sun=new THREE.DirectionalLight(0xffc890,1.6);sun.position.set(-1,1.2,.4);scene.add(hemi,sun,sun.target);
 const camera=new THREE.PerspectiveCamera(78,innerWidth/innerHeight,1,9000);camera.rotation.order='YXZ';scene.add(camera);
 const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);viewScene.add(new THREE.AmbientLight(0xd8d0c0,1.6));const vl=new THREE.DirectionalLight(0xffefc8,2.2);vl.position.set(.5,2,1);viewScene.add(vl);
 const pipeline=new Pipeline({renderer,scene,camera,viewScene,viewCamera,mobile:profile.mobile});
@@ -33,6 +33,16 @@ const WEAPONS={};for(const id of [...mp.primaries,...mp.secondaries]){WEAPONS[id
 const savedMap=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.class')||'{}').map;}catch{return null;}})();
 const mapId=mp.maps[params.get('map')]?params.get('map'):params.get('join')||!mp.maps[savedMap]?'suburb':savedMap,arena=mp.maps[mapId];
 const map={suburb:buildSuburb,yard:buildYard,wharf:buildWharf}[mapId]();scene.background=new THREE.Color(map.sky);scene.fog=new THREE.Fog(map.sky,1500,4200);
+// Sky, image-based light and a shadowed moon: each arena names its environment (gfx.js ENVIRONMENTS).
+const rig=ENVIRONMENTS[map.env]??null;
+async function lightArena(){
+  if(!rig)return;
+  await loadEnvironment(renderer,scene,`env/${map.env}.hdr`,{background:`env/${map.env}_sky.jpg`,intensity:rig.env,backgroundIntensity:rig.sky,rotation:rig.rotation,also:[viewScene]});
+  hemi.color.set(rig.hemi[0]);hemi.groundColor.set(rig.hemi[1]);hemi.intensity=rig.hemi[2];sun.color.set(rig.moonColor);sun.intensity=rig.moonPower;scene.fog=new THREE.Fog(rig.fog[0],rig.fog[1],rig.fog[2]);
+  const box=new THREE.Box3().setFromObject(world.static),c=box.getCenter(new THREE.Vector3()),r=box.getSize(new THREE.Vector3()).length()/2,dir=new THREE.Vector3(...rig.moon).normalize();
+  sun.target.position.copy(c);sun.position.copy(c).addScaledVector(dir,r*1.5);const sc=sun.shadow.camera;sc.left=sc.bottom=-r;sc.right=sc.top=r;sc.near=r*.2;sc.far=r*3;sc.updateProjectionMatrix();
+  enableShadows(renderer,pipeline.tier,{receivers:[world.static],lights:[sun]});
+}
 document.title='Graveshift: '+arena.name;
 let world,player,view,ready=false,active=false,primary=false,primaryPressed=false,ads=false,mousePrimary=false,mouseAim=false,time=0,ended=false,lastRendered=0,previous=performance.now(),fps=0,frames=0,frameTime=0,fpsFrames=0;
 const botsOnly=params.get('bots')==='only',errors=[],soldiers=[],killfeed=[],fx=[],drones=[],strikes=[];
@@ -117,7 +127,7 @@ const teamAssets=[];
 async function loadTeams(){for(const t of mp.teams)teamAssets.push(await loadAsset(t.model));teamAssets.gun=await loadAsset('models/rifle.glb');}
 function makeBody(team){
   const t=mp.teams[team],asset=teamAssets[team],model=instance(asset,70,'y');model.rotation.y=Math.PI/2;
-  model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;if(t.showMesh&&!t.showMesh.some(n=>o.name.startsWith(n.replace('.',''))))o.visible=false;}});
+  model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;if(t.showMesh&&!t.showMesh.some(n=>o.name.startsWith(n.replace('.',''))))o.visible=false;}});
   if(t.attachGun){const wrist=model.getObjectByName(t.attachGun);if(wrist){model.updateMatrixWorld(true);const ws=wrist.getWorldScale(new THREE.Vector3()),g=instance(teamAssets.gun,30,'max');g.scale.multiplyScalar(1/ws.x);g.rotation.set(0,Math.PI/2,Math.PI/2);wrist.add(g);}}
   const tint=new THREE.Color(t.color);model.traverse(o=>{if(o.isMesh&&o.visible){o.material=[o.material].flat().map(m=>{const c=m.clone();c.emissive=tint;c.emissiveIntensity=.07;return c;});if(o.material.length===1)o.material=o.material[0];}});
   const rig=new ClipRig(model,asset.clips);for(const [k,c] of Object.entries(t.clips))rig.map(k,c);rig.play('idle');
@@ -718,7 +728,7 @@ addEventListener('pagehide',()=>{if(netRole==='client')net.send({t:'bye'});if(ne
 // A closed host tab is not always reported by the data channel: treat eight silent seconds as a lost host.
 setInterval(()=>{if(netRole==='client'&&started&&!ended&&lastSnap&&performance.now()-lastSnap>8000)net.onLost?.();},1000);
 try{
-  $('load-label').textContent='Building '+arena.name;world=new World(scene,base,map);await world.load((t,p)=>{$('load-label').textContent=t;$('load-progress').style.width=p+'%';},{mapName:mapId});world.setDoors({openDoors:new Set()});
+  $('load-label').textContent='Building '+arena.name;world=new World(scene,base,map);await world.load((t,p)=>{$('load-label').textContent=t;$('load-progress').style.width=p+'%';},{mapName:mapId});world.setDoors({openDoors:new Set()});await lightArena().catch(e=>console.info('environment skipped',e.message));
   player=new PlayerController(camera,world.physics,{spawn:vector(world.spawns[0].position),spawnIsEye:false,radius:14,height:70,eyeHeight:60,moveSpeed:190,sprintSpeed:285,crouchSpeed:95,gravity:800,jumpHeight:39,fallResetY:-800,maxSubSteps:12,groundSnapSpeed:10});
   view=new ViewModel(viewScene,base,audio);await Promise.all([loadTeams(),view.load(),audio.load()]);
   buildMenu();ready=true;$('loading').hidden=true;$('start').disabled=false;$('menu-status').textContent=botsOnly?'Spectating a bots-only match':pad.connected?'Press START to deploy':'Click DEPLOY · Tab shows the scoreboard';

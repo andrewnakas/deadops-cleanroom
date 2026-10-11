@@ -56,5 +56,5 @@ export function buildSuburb(){
     mid:[[-1100,-260],[-700,-120],[-300,0],[0,-150],[300,0],[700,120],[1100,260]],
     south:[[-1100,650],[-700,640],[-450,680],[0,880-60],[450,680],[700,640],[1100,650]]};
   for(const [lane,pts] of Object.entries(lanes))pts.forEach((p,i)=>k.entity({type:'waypoint',lane,index:i,position:[p[0],0,p[1]]}));
-  return {kit:k,links:[],start:[],sky:0x2a3550};
+  return {kit:k,links:[],start:[],env:'sky_clear',sky:0x2a3550};
 }

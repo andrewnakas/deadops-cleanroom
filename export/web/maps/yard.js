@@ -46,5 +46,5 @@ export function buildYard(){
     mid:[[-1100,-200],[-760,0],[-500,0],[0,-110],[500,0],[760,0],[1100,200]],
     south:[[-1100,650],[-760,640],[-450,640],[0,640],[450,640],[760,640],[1100,650]]};
   for(const [lane,pts] of Object.entries(lanes))pts.forEach((p,i)=>k.entity({type:'waypoint',lane,index:i,position:[p[0],0,p[1]]}));
-  return {kit:k,links:[],start:[],sky:0x3a3440};
+  return {kit:k,links:[],start:[],env:'sky_moonrise',sky:0x3a3440};
 }
