@@ -29,7 +29,7 @@ for r in rows:
             if rel.endswith(('.js', '.json', '.bin')) and rel.startswith(('maps/', 'data/')): continue  # own work
             if not licensed(rel): bad.append(('unlicensed', r['reference_asset'], rel))
 shipped = [os.path.relpath(f, web).replace(os.sep, '/') for f in glob.glob(os.path.join(web, '**', '*'), recursive=True)
-           if f.lower().endswith(('.glb', '.gltf', '.png', '.jpg', '.jpeg', '.webp', '.ogg', '.wav', '.mp3'))]
+           if f.lower().endswith(('.glb', '.gltf', '.png', '.jpg', '.jpeg', '.webp', '.ogg', '.wav', '.mp3', '.hdr', '.exr', '.ktx2'))]
 for rel in shipped:
     if not licensed(rel): bad.append(('shipped without licence row', '-', rel))
 for r in lic.values():

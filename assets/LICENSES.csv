@@ -1,7 +1,6 @@
 file,title,author,license,source,notes
 models/zombie_a.glb,Zombie,Quaternius,CC0-1.0,https://poly.pizza/m/VlXjG0N8Eg,anims=Crawl/Death/HitReact/Idle/Idle_Attack/Jump/Jump_Idle/Jump_Land/No/Punch/Run/Run_Arms/Walk/Wave/Yes/Run_Attack/Crawl/Death/HitReact/Idle/Idle_Attack/Jump/Jump_Idle/Jump_Land/No/Punch/Run/Run_Arms/Run_Attack/Walk/Wave/Yes
 models/zombie_b.glb,Zombie,Quaternius,CC0-1.0,https://poly.pizza/m/JoBvxIUpZP,anims=Attack/Death/HitRecieve/Idle/Jump/Run/Walk
-models/wolf_a.glb,Wolf,Quaternius,CC0-1.0,https://poly.pizza/m/XU7oNeKShV,anims=Death/Headbutt/Idle/Idle_Eating/Jump_Loop/Jump_Start/Run/Walk
 models/wolf_b.glb,Wolf,Quaternius,CC0-1.0,https://poly.pizza/m/P1gU3Qkr9r,anims=Attack/Death/Eating/Gallop/Gallop_Jump/Idle_HitReact_Left/Idle_HitReact_Right/Jump_ToIdle/Walk/Idle_2_HeadLow/Idle_2/Idle/Attack/Death/Eating/Gallop/Gallop_Jump/Idle/Idle_2/Idle_2_HeadLow/Idle_HitReact_Left/Idle_HitReact_Right/Jump_ToIdle/Walk
 models/pistol.glb,Pistol,Quaternius,CC0-1.0,https://poly.pizza/m/52kQzphmeF,anims=
 models/revolver.glb,Revolver,Quaternius,CC0-1.0,https://poly.pizza/m/9C26wSpMS0,anims=
@@ -23,8 +22,6 @@ models/landmine.glb,Landmine,Quaternius,CC0-1.0,https://poly.pizza/m/PtqkseZo9O,
 models/axe.glb,Axe,Quaternius,CC0-1.0,https://poly.pizza/m/FkzZ6I1zjT,anims=
 models/soldier.glb,Character Soldier,Quaternius,CC0-1.0,https://poly.pizza/m/PpLF4rt4ah,anims=Death/Duck/HitReact/Idle/Idle_Shoot/Jump/Jump_Idle/Jump_Land/No/Punch/Run/Run_Gun/Wave/Yes
 models/swat.glb,SWAT,Quaternius,CC0-1.0,https://poly.pizza/m/Btfn3G5Xv4,anims=Death/Gun_Shoot/HitRecieve/HitRecieve_2/Idle/Idle_Gun/Idle_Gun_Pointing/Idle_Gun_Shoot/Idle_Neutral/Idle_Sword/Interact/Kick_Left/Kick_Right/Punch_Left/Punch_Right/Roll/Run/Run_Back/Run_Left/Run_Right/Run_Shoot/Sword_Slash/Walk/Wave
-models/human.glb,Animated Human,Quaternius,CC0-1.0,https://poly.pizza/m/c3Ibh9I3udk,anims=ArmatureAction.002/Death/Idle/Jump/Punch/Run/Walk/Working
-models/skeleton.glb,Skeleton,Quaternius,CC0-1.0,https://poly.pizza/m/DM4QScSmbS,anims=Attack/Death/HitRecieve/Idle/Jump/Run/Walk
 audio/voice/*.ogg,Announcer placeholder lines (tools/make_voices.py),Generated with Piper TTS (voice en_US-ryan-high),"own work, CC0 dedication (placeholder TTS, to be replaced by own recordings)",https://github.com/rhasspy/piper,"no cloning, no retail audio"
 env/sky_clear.hdr,Kloppenheim 02 (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/kloppenheim_02_puresky,1k HDR
 env/sky_clear_sky.jpg,Kloppenheim 02 (Pure Sky),"Poly Haven (Greg Zaal, Jarod Guest)",CC0-1.0,https://polyhaven.com/a/kloppenheim_02_puresky,"tonemapped, resized to 4096x2048"
@@ -129,14 +126,6 @@ textures/siding_orm.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://
 textures-mobile/siding_color.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
 textures-mobile/siding_normal.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,resized to 512px
 textures-mobile/siding_orm.jpg,WoodSiding008,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=WoodSiding008,"resized to 512px; occlusion, roughness and metalness packed into one image"
-models/props/ammo_box.glb,Ammo Box,Poly Haven (DanKit),CC0-1.0,https://polyhaven.com/a/ammo_box,"simplified, textures 512px WebP"
-models/props/fluorescent_lights.glb,Mounted Fluorescent Lights,Poly Haven (Ulan Cabanilla),CC0-1.0,https://polyhaven.com/a/mounted_fluorescent_lights,"simplified, textures 512px WebP"
-models/props/road_barrier.glb,Concrete Road Barrier 02,Poly Haven (Amal Kumar),CC0-1.0,https://polyhaven.com/a/concrete_road_barrier_02,"simplified, textures 512px WebP"
-models/props/power_box.glb,Power Box 01,"Poly Haven (Rico Cilliers, Yann Kervran)",CC0-1.0,https://polyhaven.com/a/power_box_01,"simplified, textures 512px WebP"
-models/weapons/service_pistol.glb,Service Pistol,Poly Haven (Mateusz Sadek),CC0-1.0,https://polyhaven.com/a/service_pistol,"simplified, textures 1024px WebP"
-models/weapons/bolt_rifle.glb,Bolt Action Rifle 7.62,Poly Haven (Mateusz Sadek),CC0-1.0,https://polyhaven.com/a/bolt_action_rifle_7_62,"simplified, textures 1024px WebP"
-models/weapons/stick_grenade.glb,Stick Grenade,Poly Haven (singaii),CC0-1.0,https://polyhaven.com/a/stick_grenade,"simplified, textures 1024px WebP"
-models/weapons/hatchet.glb,Hatchet,"Poly Haven (James Ray Cock, Ulan Cabanilla)",CC0-1.0,https://polyhaven.com/a/hatchet,"simplified, textures 1024px WebP"
 textures/corrugated_color.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,resized to 1024px
 textures/corrugated_normal.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,resized to 1024px
 textures/corrugated_orm.jpg,CorrugatedSteel007A,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=CorrugatedSteel007A,"resized to 1024px; occlusion, roughness and metalness packed into one image"
@@ -161,3 +150,29 @@ textures/paving_orm.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https:
 textures-mobile/paving_color.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,resized to 512px
 textures-mobile/paving_normal.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,resized to 512px
 textures-mobile/paving_orm.jpg,PavingStones070,ambientCG (Lennart Demes),CC0-1.0,https://ambientcg.com/view?id=PavingStones070,"resized to 512px; occlusion, roughness and metalness packed into one image"
+models/props/sofa.glb,Sofa 01,Poly Haven (Kirill Sannikov),CC0-1.0,https://polyhaven.com/a/Sofa_01,"simplified, textures 1024px WebP"
+models/props/covered_car.glb,Covered Car,Poly Haven (MP),CC0-1.0,https://polyhaven.com/a/covered_car,"simplified, textures 1024px WebP"
+models/props/street_lamp.glb,Street Lamp 01,Poly Haven (Josh Dean),CC0-1.0,https://polyhaven.com/a/street_lamp_01,"simplified, textures 1024px WebP"
+models/props/chandelier.glb,Chandelier 01,Poly Haven (Kirill Sannikov),CC0-1.0,https://polyhaven.com/a/Chandelier_01,"simplified, textures 1024px WebP"
+models/props/armchair.glb,Arm Chair 01,Poly Haven (Kirill Sannikov),CC0-1.0,https://polyhaven.com/a/ArmChair_01,"simplified, textures 512px WebP"
+models/props/cash_register.glb,Cash Register 01,Poly Haven (Joe Seabuhr),CC0-1.0,https://polyhaven.com/a/CashRegister_01,"simplified, textures 512px WebP"
+models/props/film_projector.glb,Filmstrip Projector 8mm,Poly Haven (PeterM),CC0-1.0,https://polyhaven.com/a/filmstrip_projector_8mm,"simplified, textures 512px WebP"
+models/props/barrel.glb,Barrel_01,Poly Haven (Jorge Camacho),CC0-1.0,https://polyhaven.com/a/Barrel_01,"simplified, textures 512px WebP"
+models/props/wooden_crate.glb,Wooden Crate 01,Poly Haven (James Ray Cock),CC0-1.0,https://polyhaven.com/a/wooden_crate_01,"simplified, textures 512px WebP"
+models/props/cardboard_box.glb,Cardboard Box 01,Poly Haven (Rahul Chaudhary),CC0-1.0,https://polyhaven.com/a/cardboard_box_01,"simplified, textures 512px WebP"
+models/props/trashbag.glb,Trashbag,Poly Haven (Benny Weimer),CC0-1.0,https://polyhaven.com/a/trashbag,"simplified, textures 512px WebP"
+models/props/tyre.glb,Old Tyre,Poly Haven (MP),CC0-1.0,https://polyhaven.com/a/old_tyre,"simplified, textures 512px WebP"
+models/props/hanging_lamp.glb,Hanging Industrial Lamp,Poly Haven (Kuutti Siitonen),CC0-1.0,https://polyhaven.com/a/hanging_industrial_lamp,"simplified, textures 512px WebP"
+models/props/wall_lamp.glb,Industrial Wall Lamp,Poly Haven (Kuutti Siitonen),CC0-1.0,https://polyhaven.com/a/industrial_wall_lamp,"simplified, textures 512px WebP"
+models/props/grandfather_clock.glb,Vintage Grandfather Clock 01,"Poly Haven (Yann Kervran, James Ray Cock)",CC0-1.0,https://polyhaven.com/a/vintage_grandfather_clock_01,"simplified, textures 512px WebP"
+models/props/potted_plant.glb,Potted Plant 04,Poly Haven (James Ray Cock),CC0-1.0,https://polyhaven.com/a/potted_plant_04,"simplified, textures 512px WebP"
+models/props/picnic_table.glb,Wooden Picnic Table,Poly Haven (Ulan Cabanilla),CC0-1.0,https://polyhaven.com/a/wooden_picnic_table,"simplified, textures 512px WebP"
+models/props/aircon_unit.glb,Exterior Aircon Unit,Poly Haven (Monsta3D),CC0-1.0,https://polyhaven.com/a/exterior_aircon_unit,"simplified, textures 512px WebP"
+models/props/plastic_crate.glb,Plastic Crate 02,Poly Haven (Fabi_G),CC0-1.0,https://polyhaven.com/a/plastic_crate_02,"simplified, textures 512px WebP"
+models/props/generator.glb,Portable Generator,Poly Haven (James Ray Cock),CC0-1.0,https://polyhaven.com/a/portable_generator,"simplified, textures 512px WebP"
+models/props/jerrycan.glb,Metal Jerrycan Green,Poly Haven (Ulan Cabanilla),CC0-1.0,https://polyhaven.com/a/metal_jerrycan_green,"simplified, textures 512px WebP"
+models/props/lifebuoy.glb,Lifebuoy,Poly Haven (Hank Kaamura),CC0-1.0,https://polyhaven.com/a/lifebuoy,"simplified, textures 512px WebP"
+models/props/military_crate.glb,Old Military Crate,Poly Haven (Jack Mava),CC0-1.0,https://polyhaven.com/a/old_military_crate,"simplified, textures 512px WebP"
+models/props/hand_truck.glb,Hand Truck,Poly Haven (Mutanzom3D),CC0-1.0,https://polyhaven.com/a/hand_truck,"simplified, textures 512px WebP"
+models/props/road_barrier.glb,Concrete Road Barrier 02,Poly Haven (Amal Kumar),CC0-1.0,https://polyhaven.com/a/concrete_road_barrier_02,"simplified, textures 512px WebP"
+models/props/power_box.glb,Power Box 01,"Poly Haven (Rico Cilliers, Yann Kervran)",CC0-1.0,https://polyhaven.com/a/power_box_01,"simplified, textures 512px WebP"

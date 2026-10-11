@@ -4,6 +4,8 @@ import * as THREE from 'three';
 // shell casings, muzzle flashes and explosions. Nothing here allocates per shot.
 const _m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_s=new THREE.Vector3(),_c=new THREE.Color(),_v=new THREE.Vector3(),_z=new THREE.Vector3(0,0,1),_up=new THREE.Vector3(0,1,0);
 function dotTexture(draw){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');draw(g);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
+// Smoke puff: a cluster of soft blobs, so a cloud has a ragged edge instead of a perfect disc.
+const puff=()=>dotTexture(g=>{let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<16;i++){const x=32+(rnd()-.5)*30,y=32+(rnd()-.5)*30,r=8+rnd()*10,gr=g.createRadialGradient(x,y,1,x,y,r);gr.addColorStop(0,'rgba(255,255,255,.5)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);}});
 const softDot=()=>dotTexture(g=>{const r=g.createRadialGradient(32,32,2,32,32,30);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.5,'rgba(255,255,255,.75)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);});
 const splat=()=>dotTexture(g=>{g.fillStyle='#fff';for(let i=0;i<9;i++){const a=i*2.3,r=i?8+((i*37)%13):0;g.beginPath();g.arc(32+Math.cos(a)*r,32+Math.sin(a)*r,i?4+((i*53)%7):15,0,7);g.fill();}});
 const star=()=>dotTexture(g=>{g.translate(32,32);const r=g.createRadialGradient(0,0,1,0,0,30);r.addColorStop(0,'rgba(255,250,220,1)');r.addColorStop(.35,'rgba(255,190,90,.8)');r.addColorStop(1,'rgba(255,120,30,0)');g.fillStyle=r;
@@ -25,7 +27,7 @@ export class Fx {
     this.flashNext=0;
     this.balls=[];for(let i=0;i<8;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),new THREE.MeshBasicMaterial({transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}));b.visible=false;scene.add(b);this.balls.push({mesh:b,life:0,max:1,radius:1});}
     this.ballNext=0;
-    const smokeMap=softDot();this.smokes=[];for(let i=0;i<(low?10:28);i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeMap,transparent:true,depthWrite:false,color:0x555555}));s.visible=false;scene.add(s);this.smokes.push({mesh:s,life:0,max:1,v:new THREE.Vector3(),size:1,grow:0,alpha:.5});}
+    const smokeMap=puff();this.smokes=[];for(let i=0;i<(low?10:28);i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeMap,transparent:true,depthWrite:false,color:0x555555}));s.visible=false;scene.add(s);this.smokes.push({mesh:s,life:0,max:1,v:new THREE.Vector3(),size:1,grow:0,alpha:.5});}
     this.smokeNext=0;
     this.lights=[];for(let i=0;i<(low?1:3);i++){const l=new THREE.PointLight(0xffb060,0,700,1.6);scene.add(l);this.lights.push({light:l,life:0,max:1,peak:0});}
     this.lightNext=0;
