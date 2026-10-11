@@ -16,7 +16,7 @@ export function sanitize(raw={}){
     const v=raw?.[k];if(v===undefined||v===null||k==='binds')continue;
     if(typeof d==='number'){const n=+v;if(Number.isFinite(n)){const [lo,hi]=RANGES[k]??[-Infinity,Infinity];out[k]=Math.min(hi,Math.max(lo,n));}}
     else if(typeof d==='boolean')out[k]=!!v;
-    else if(k==='quality')out[k]=['auto','low','medium','high'].includes(v)?v:d;
+    else if(k==='quality')out[k]=['auto','low','medium','high','ultra'].includes(v)?v:d;
   }
   for(const a of Object.keys(DEFAULT_BINDS)){const b=raw?.binds?.[a];if(Array.isArray(b)&&b.length&&b.every(c=>typeof c==='string'))out.binds[a]=b.slice(0,2);}
   return out;

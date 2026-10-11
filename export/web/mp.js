@@ -13,17 +13,20 @@ import { createZombieTouch } from './zombies-touch.js';
 import { Net } from './net.js';
 import { Backend } from './backend.js';
 import { createHub } from './hub.js';
+import { Pipeline, enableShadows } from './post.js';
+import { createRenderer } from './gfx.js';
+import { settings, setSetting } from './settings.js';
 import { loadProgress, saveProgress, grant, killAwards, levelOf, levelProgress, xpForLevel, unlockLevel, isUnlocked, legalPick, MEDALS, MAX_LEVEL ,CHALLENGES,challengeCount,claimChallenges,canTour,startTour} from './progress.js';
 
 // Team modes: two teams of soldiers (you + bots) on one of the arenas, first to the score limit.
 const $=id=>document.getElementById(id),keys=new Set(),audio=new GameAudio(),pad=new Gamepad(),params=new URLSearchParams(location.search);
 const profile=configureAssets();
-const renderer=new THREE.WebGLRenderer({antialias:!profile.mobile});renderer.setPixelRatio(Math.min(devicePixelRatio,profile.mobile?1:1.5));renderer.setSize(innerWidth,innerHeight);
-renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;renderer.autoClear=false;document.body.prepend(renderer.domElement);
+const renderer=createRenderer(profile,{exposure:1.2});
 const scene=new THREE.Scene();
 scene.add(new THREE.HemisphereLight(0xc8d4f0,0x4a5a3a,2.0));const sun=new THREE.DirectionalLight(0xffc890,1.6);sun.position.set(-1,1.2,.4);scene.add(sun);
 const camera=new THREE.PerspectiveCamera(78,innerWidth/innerHeight,1,9000);camera.rotation.order='YXZ';scene.add(camera);
 const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);viewScene.add(new THREE.AmbientLight(0xd8d0c0,1.6));const vl=new THREE.DirectionalLight(0xffefc8,2.2);vl.position.set(.5,2,1);viewScene.add(vl);
+const pipeline=new Pipeline({renderer,scene,camera,viewScene,viewCamera,mobile:profile.mobile});
 const [base,mp]=await Promise.all([fetch('data/game.json').then(r=>r.json()),fetch('data/mp.json').then(r=>r.json())]);
 const WEAPONS={};for(const id of [...mp.primaries,...mp.secondaries]){WEAPONS[id]={...base.weapons[id],...mp.weapons[id],id,upgrade:undefined};WEAPONS[id].fireType??=WEAPONS[id].automatic?'Full Auto':'Single Shot';}
 // Arena: chosen before loading (menu or ?map=); everyone in a room loads the host's arena.
@@ -31,7 +34,7 @@ const savedMap=(()=>{try{return JSON.parse(localStorage.getItem('graveshift.clas
 const mapId=mp.maps[params.get('map')]?params.get('map'):params.get('join')||!mp.maps[savedMap]?'suburb':savedMap,arena=mp.maps[mapId];
 const map={suburb:buildSuburb,yard:buildYard,wharf:buildWharf}[mapId]();scene.background=new THREE.Color(map.sky);scene.fog=new THREE.Fog(map.sky,1500,4200);
 document.title='Graveshift: '+arena.name;
-let world,player,view,ready=false,active=false,primary=false,primaryPressed=false,ads=false,mousePrimary=false,mouseAim=false,time=0,ended=false,lastRendered=0,previous=performance.now(),fps=0,frames=0,frameTime=0;
+let world,player,view,ready=false,active=false,primary=false,primaryPressed=false,ads=false,mousePrimary=false,mouseAim=false,time=0,ended=false,lastRendered=0,previous=performance.now(),fps=0,frames=0,frameTime=0,fpsFrames=0;
 const botsOnly=params.get('bots')==='only',errors=[],soldiers=[],killfeed=[],fx=[],drones=[],strikes=[];
 const score=[0,0],scanUntil=[0,0];
 const lobby=[],clean=n=>String(n??'').replace(/[^\w .\-]/g,'').slice(0,14)||'Guest';const chat=[],say=t=>String(t??'').replace(/[^\w .,!?'\-:()]/g,'').trim().slice(0,80);let lastSnap=0,hostVote='',hostTeam=0,countdown=0,myReady=false,myTeam=0,lastLobby=null;
@@ -603,7 +606,7 @@ addEventListener('mouseup',e=>{if(e.button===0)mousePrimary=false;if(e.button===
 addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('keydown',e=>{if(e.target?.matches?.('input,select,textarea'))return;if(['Tab','Space'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat||!active)return;if(e.code==='KeyR')reloadHuman();if(e.code==='KeyQ'||e.code==='Digit1'||e.code==='Digit2')swapHuman();if(e.code==='Digit5')streakHuman();if(e.code==='KeyG')fragHuman();if(e.code==='Escape')setActive(false);});
 addEventListener('keyup',e=>keys.delete(e.code));
-addEventListener('resize',()=>{camera.aspect=viewCamera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();viewCamera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+addEventListener('resize',()=>{camera.aspect=viewCamera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();viewCamera.updateProjectionMatrix();pipeline.resize(innerWidth,innerHeight);});
 const human=()=>soldiers.find(s=>s.human);
 function reloadHuman(){const h=human();if(h?.alive&&h.arms.reload()){view.reload(h.arms.state.mag===0,h.arms.reloadLeft);audio.reload('magazine',h.arms.reloadLeft);}}
 function swapHuman(){const h=human();if(!h?.alive)return;h.arms.swap();view.equip(h.arms.def);}
@@ -722,11 +725,12 @@ try{
   if(botsOnly){startMatch();setActive(true);}
   loadout.name=saved.name??'';if(params.has('quick'))await quickPlay((params.get('quick').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6))||'PUB');else await goOnline();
 }catch(e){console.error(e);errors.push(String(e));$('load-label').textContent='Unable to start: '+e.message;}
+$('cls-quality').value=settings.quality;$('cls-quality').addEventListener('change',e=>setSetting('quality',e.target.value));
 $('start').addEventListener('click',deploy);renderer.domElement.addEventListener('click',()=>{if(!active&&started&&!ended)deploy();});$('again').addEventListener('click',()=>{if(netRole==='host')changeMap(nextMap());else if(netRole==='client')location.search='';else location.reload();});
 $('lobby').addEventListener('click',lobbyClick);$('lobby').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lobby-say')lobbySay();});for(const id of ['cls-size','cls-diff','cls-name','cls-mode'])$(id).addEventListener('change',()=>{if(netRole==='host'&&!started){readMenu();sendLobby();}});
 renderer.info.autoReset=false;
 function renderFrame(now){
-  if(document.hidden)return;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;if(frameTime>.75){fps=Math.round((renderer.info.render.frame||0));frameTime=0;}
-  pad.poll();update(dt);renderer.info.reset();renderer.clear();renderer.render(scene,camera);if(started&&!killcam&&human()?.alive){renderer.clearDepth();renderer.render(viewScene,viewCamera);}
+  if(document.hidden)return;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;fpsFrames++;if(frameTime>.75){fps=Math.round(fpsFrames/frameTime);frameTime=0;fpsFrames=0;}
+  pad.poll();update(dt);renderer.info.reset();pipeline.render(dt,{view:!!(started&&!killcam&&human()?.alive)});
 }
 renderer.setAnimationLoop(renderFrame);

@@ -13,7 +13,7 @@ const ROWS=[
   ['check','aimAssist','Aim assist (controller and touch)'],
   ['Video'],
   ['range','fov','Field of view',60,100,1,v=>Math.round(v)+'°'],
-  ['select','quality','Graphics',[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']]],
+  ['select','quality','Graphics',[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High'],['ultra','Ultra']]],
   ['check','shake','Camera bob and shake'],
   ['check','colorblind','High-contrast team colours'],
   ['Audio'],
