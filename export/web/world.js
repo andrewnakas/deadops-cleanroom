@@ -9,7 +9,7 @@ import { loadAsset, instance } from './models.js';
 export const vector=a=>new THREE.Vector3().fromArray(a);
 export const zoneNames={lobby:'Lobby',stairs:'Stair hall',balcony:'Balcony',booth:'Projection booth',auditorium:'Auditorium',dressing:'Dressing rooms',alley:'Back alley'};
 // Surface materials: ambientCG CC0 textures (assets/LICENSES.csv) with a tint per use.
-const SURFACES={tiles:{tint:0x9a9284,scale:48,env:.35},plaster:{tint:0x9a948a,scale:120},wallpaper:{tint:0x8f6f5a,scale:90},paintedwood:{tint:0x7a5a3c,scale:80},
+const SURFACES={tiles:{tint:0x9a9284,scale:48,env:.3,flat:.42},plaster:{tint:0x9a948a,scale:120},wallpaper:{tint:0x8f6f5a,scale:90},paintedwood:{tint:0x7a5a3c,scale:80},
   metal:{tint:0x8a8f96,scale:80,metal:.6},velvet:{tint:0x9a1d22,scale:60},carpet:{tint:0x7a3430,scale:110},bricks:{tint:0x9a7a6a,scale:120},
   woodfloor:{tint:0xa08060,scale:110},concrete:{tint:0x8a8a86,scale:140},asphalt:{tint:0x6a6a6a,scale:160},planks:{tint:0xa88a62,scale:60},
   grass:{tint:0x7a9a5a,scale:120},hedge:{tint:0x3f6a34,scale:80},roof:{tint:0x7a4a3a,scale:90},siding:{tint:0xc8c0a8,scale:100},siding_b:{tex:'siding',tint:0x8aa0b8,scale:100},
@@ -52,7 +52,7 @@ export class World {
         this.materials[name]=s.paint?new THREE.MeshPhysicalMaterial({color:s.plain,roughness:.5,metalness:.55,clearcoat:1,clearcoatRoughness:.12}):
           new THREE.MeshStandardMaterial({color:s.plain,roughness:s.rough??.08,metalness:s.metal??0,transparent:!!s.opacity,opacity:s.opacity??1,depthWrite:!s.opacity,envMapIntensity:s.env??1});return;}
       const t=s.tex??name,[map,normalMap,orm]=await Promise.all([tex(`${dir}/${t}_color.jpg`,true),tex(`${dir}/${t}_normal.jpg`),tex(`${dir}/${t}_orm.jpg`)]);
-      this.materials[name]=weathered(new THREE.MeshStandardMaterial({color:s.tint,map,normalMap,roughnessMap:orm,aoMap:orm,aoMapIntensity:1,metalnessMap:s.metal?orm:null,roughness:s.rough??1,metalness:s.metal?1:0,normalScale:new THREE.Vector2(s.bump??1,s.bump??1),envMapIntensity:s.env??1}),s.wear??1);
+      this.materials[name]=weathered(new THREE.MeshStandardMaterial({color:s.tint,map,normalMap,roughnessMap:s.flat?null:orm,aoMap:orm,aoMapIntensity:1,metalnessMap:s.metal?orm:null,roughness:s.flat??s.rough??1,metalness:s.metal?1:0,normalScale:new THREE.Vector2(s.bump??1,s.bump??1),envMapIntensity:s.env??1}),s.wear??1);
     }));
     const geos=buildGeometry([...kit.solids,...kit.decor],{scales:Object.fromEntries(Object.entries(SURFACES).map(([k,s])=>[k,s.scale]))});
     this.static=new THREE.Group();this.static.name='map';
@@ -79,7 +79,8 @@ export class World {
       const bulb=new THREE.Mesh(bulbGeo,new THREE.MeshStandardMaterial({color:0x111111,emissive:l.color,emissiveIntensity:6}));bulb.userData.noAO=true;
       fit.add(rod,cup,bulb);this.scene.add(fit);entry.bulb=bulb;entry.fitting=true;entry.position.y-=5;
       // a faint cone of lit dust under the shade
-      if(T.shafts){const h=Math.min(150,entry.position.y>200?150:110),cone=new THREE.Mesh(new THREE.CylinderGeometry(7,h*.62,h,28,1,true),new THREE.MeshBasicMaterial({color:l.color,transparent:true,opacity:.035,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));cone.position.y=-h/2-2;cone.userData.noAO=true;cone.renderOrder=2;fit.add(cone);entry.cone=cone;}
+      if(T.shafts){const h=Math.min(150,entry.position.y>200?150:110),cone=new THREE.Mesh(new THREE.CylinderGeometry(7,h*.62,h,28,1,true),new THREE.MeshBasicMaterial({color:l.color,vertexColors:true,transparent:true,opacity:.03,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.FrontSide,fog:false}));cone.position.y=-h/2-2;
+        {const g=cone.geometry,p=g.getAttribute('position'),c=new Float32Array(p.count*3);for(let i=0;i<p.count;i++){const v=Math.pow(Math.max(0,(p.getY(i)+h/2)/h),2.2);c[i*3]=c[i*3+1]=c[i*3+2]=v;}g.setAttribute('color',new THREE.BufferAttribute(c,3));}cone.userData.noAO=true;cone.renderOrder=2;fit.add(cone);entry.cone=cone;}
     }
     for(let i=0;i<Math.min(this.lights.length,T.lights);i++){const p=new THREE.PointLight(0xffffff,0,800,1.6);this.scene.add(p);this.pointPool.push({light:p,entry:null,want:null,level:0});}
     // Set dressing models: loaded once each, cloned per placement, static.
@@ -197,7 +198,7 @@ export class World {
     for(const e of this.lights)e.share=1;
     for(const s of this.shadowSpots){if(this._slide(s,dt)){s.entry.share=1-.62*s.level;s.light.intensity=s.entry.base*.93*s.level*this.lightLevel;}else s.light.intensity=0;}
     for(const s of this.pointPool){if(this._slide(s,dt)){const f=1+Math.sin(this.lightClock*9+s.entry.flicker)*.015;s.light.intensity=s.entry.base*s.entry.share*s.level*(s.entry.fixed?1:this.lightLevel)*f;}else s.light.intensity=0;}
-    for(const e of this.lights)if(e.bulb){e.bulb.material.emissiveIntensity=.6+3*this.lightLevel;if(e.cone)e.cone.material.opacity=.012+.022*Math.min(1.6,this.lightLevel);}
+    for(const e of this.lights)if(e.bulb){e.bulb.material.emissiveIntensity=.6+3*this.lightLevel;if(e.cone)e.cone.material.opacity=.02+.03*Math.min(1.6,this.lightLevel);}
   }
   update(dt,session){
     for(const a of this.animated)a.userData.update?.(dt,session.power);

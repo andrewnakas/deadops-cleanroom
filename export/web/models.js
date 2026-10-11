@@ -46,8 +46,9 @@ function smoothNormals(g){
   n.needsUpdate=true;
 }
 export function soften(asset){
-  if(asset.softened)return asset;asset.softened=true;const box=new THREE.Box3().setFromObject(asset.scene);asset.span=Math.max(1e-3,box.max.y-box.min.y);
-  asset.scene.traverse(o=>{if(o.isMesh)smoothNormals(o.geometry);});
+  if(asset.softened)return asset;asset.softened=true;asset.span=1e-3;
+  // span is measured in the units the vertices are stored in, which is the space the grit noise runs in
+  asset.scene.traverse(o=>{if(o.isMesh){smoothNormals(o.geometry);o.geometry.computeBoundingBox();const s=o.geometry.boundingBox.getSize(new THREE.Vector3());asset.span=Math.max(asset.span,s.x,s.y,s.z);}});
   return asset;
 }
 const GRIT_GLSL=`
@@ -67,7 +68,7 @@ export function gritty(material,{desat=.6,dirt=.5,blood=0,freq=6,seed=0,tone=0xf
         vec3 gtP=gtPos*gtFreq+gtSeed*7.3;float gtL=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
         diffuseColor.rgb=mix(diffuseColor.rgb,vec3(gtL),gtDesat)*gtTone;
         float gtD=smoothstep(.42,.75,gtFbm(gtP*.8));diffuseColor.rgb*=1.-gtD*gtDirt*.7;
-        gtWet=smoothstep(.6,.72,gtFbm(gtP*1.25+31.))*gtBlood;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.13,.012,.01),gtWet*.92);`)
+        gtWet=smoothstep(.62,.74,gtFbm(gtP*1.25+31.))*gtBlood;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.13,.012,.01),gtWet*.92);`)
       .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.5,gtWet);');
   };
   material.customProgramCacheKey=()=>'gritty';material.needsUpdate=true;return material;
