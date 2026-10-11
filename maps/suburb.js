@@ -22,14 +22,14 @@ export function buildSuburb(){
     k.wallZ(x0,z0,z1,0,h,mat,[[ (z0+z1)/2-40,(z0+z1)/2+40,55,110]]);
     k.wallZ(x1,z0,z1,0,h,mat,[[ (z0+z1)/2-40,(z0+z1)/2+40,55,110]]);
     // interior: a counter and a sofa for cover
-    k.box(x0+30,4,z0+30,x0+110,40,z0+60,'paintedwood');k.box(x1-140,4,z1-60,x1-40,30,z1-30,'velvet');
+    k.box(x0+30,4,z0+30,x0+110,40,z0+60,'paintedwood');k.box(x1-140,4,z1-60,x1-40,30,z1-30,'velvet',{invisible:true});k.prop('sofa',[x1-90,4,z1-44],{yaw:Math.PI,scale:1.55});k.prop('armchair',[x0+150,4,z1-50],{yaw:Math.PI+.5});k.prop('cardboard_box',[x1-40,4,z0+40],{yaw:.4,scale:1.5});
     // front porch step
     k.box(cx-70,0,frontZ<0?z1:z0-40,cx+70,8,frontZ<0?z1+40:z0,'concrete');
   };
   house(-720,-470,-260,-230,'siding',-1);house(260,-470,720,-230,'siding_b',-1);
   house(-720,230,-260,470,'siding_b',1);house(260,230,720,470,'siding',1);
   // street: parked cars (body + cabin), cul-de-sac planter
-  const car=(x,z,rot,mat)=>{const L=rot?60:180,Wd=rot?180:70;k.box(x-L/2,0,z-Wd/2,x+L/2,38,z+Wd/2,mat);k.box(x-L/2*.6,38,z-Wd/2*.85,x+L/2*.6,62,z+Wd/2*.85,'glass');};
+  const car=(x,z,rot,mat)=>{const L=rot?60:180,Wd=rot?180:70;k.box(x-L/2,0,z-Wd/2,x+L/2,38,z+Wd/2,mat,{invisible:true});k.box(x-L/2*.6,38,z-Wd/2*.85,x+L/2*.6,62,z+Wd/2*.85,'glass',{invisible:true});k.prop('covered_car',[x,0,z],{yaw:rot?0:Math.PI/2,scale:1.06});};
   car(-900,-100,false,'carpaint');car(-380,95,false,'carpaint_b');car(420,-100,false,'carpaint_b');car(930,95,false,'carpaint');car(0,0,true,'carpaint');
   k.box(-140,0,-60,-60,30,60,'bricks');k.box(60,0,-60,140,30,60,'bricks');
   // north backyards: fences with gaps, sheds, a playhouse ramp up to a shed roof
@@ -49,6 +49,13 @@ export function buildSuburb(){
   // lights (dusk)
   k.light([0,400,0],0xffd2a0,1.2,2000);k.light([-900,300,-650],0xb0c8ff,.8,1100);k.light([900,300,650],0xb0c8ff,.8,1100);
   k.light([-490,120,-350],0xffe0b0,.6,400);k.light([490,120,-350],0xffe0b0,.6,400);k.light([-490,120,350],0xffe0b0,.6,400);k.light([490,120,350],0xffe0b0,.6,400);
+  // street furniture and yard clutter (drawn only)
+  for(const [x,z,yaw] of [[-800,-196,0],[-250,196,Math.PI],[300,-196,0],[850,196,Math.PI]]){k.prop('street_lamp',[x,3,z],{yaw:yaw+Math.PI/2,scale:1.25});k.light([x,170,z+(z<0?40:-40)],0xffd6a0,1.0,760,{fitting:false});}
+  k.prop('picnic_table',[-700,0,720],{yaw:.3});k.prop('picnic_table',[720,0,-730],{yaw:-.2});
+  k.prop('barrel',[-860,0,-720]);k.prop('barrel',[1020,0,-730]);k.prop('wooden_crate',[-1010,0,-720],{yaw:.3,scale:1.4});k.prop('wooden_crate',[870,0,-722],{yaw:-.4,scale:1.4});
+  k.prop('aircon_unit',[-732,30,-300],{yaw:-Math.PI/2});k.prop('aircon_unit',[732,30,300],{yaw:Math.PI/2});k.prop('aircon_unit',[-732,30,400],{yaw:-Math.PI/2});k.prop('aircon_unit',[732,30,-400],{yaw:Math.PI/2});
+  k.prop('generator',[-1240,0,150],{yaw:Math.PI/2});k.prop('jerrycan',[-1236,0,110],{yaw:.5});k.prop('tyre',[1240,3,-150],{tilt:[Math.PI/2,0]});k.prop('tyre',[1236,9,-146],{tilt:[Math.PI/2,0],yaw:.5});
+  k.prop('trashbag',[-250,3,-200],{yaw:.2});k.prop('trashbag',[-272,3,-204],{yaw:1.9});k.prop('trashbag',[270,3,200],{yaw:2.2});k.prop('plastic_crate',[250,3,-196]);k.prop('hand_truck',[-1242,0,-150],{yaw:Math.PI/2});
   // spawns: two teams, spread along the yard
   for(const [i,z] of [-700,-520,-340,-180,180,340,520,700].entries()){k.entity({type:'spawn',team:0,position:[-1350+(i%2)*80,0,z],yaw:-Math.PI/2});k.entity({type:'spawn',team:1,position:[1350-(i%2)*80,0,z],yaw:Math.PI/2});}
   // lane waypoints for bots (lane, x order west→east)

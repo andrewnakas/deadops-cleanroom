@@ -20,7 +20,7 @@ export function buildCinema(){
   k.box(-330,0,24,-170,44,84,'paintedwood');k.box(-330,44,24,-170,96,30,'paintedwood',{nocollide:true,nonav:true});
   k.box(-330,96,24,-170,104,84,'paintedwood');
   k.box(140,0,24,340,42,84,'paintedwood');k.box(140,42,24,340,46,90,'metal');
-  k.box(-40,0,560,40,30,600,'velvet',{tag:'bench'});
+  k.box(-40,0,560,40,30,600,'velvet',{tag:'bench',invisible:true});
 
   // ---------- Auditorium: x[-600,700] z[-1400,0], ceiling 400 ----------
   k.box(-612,-12,-1412,712,0,0,'carpet');
@@ -132,6 +132,28 @@ export function buildCinema(){
   // ---------- Lights and dressing ----------
   k.light([0,118,300],0xffd9a0,1.0,700);k.light([0,380,-600],0xffcf96,1.2,1100);k.light([0,200,-1250],0xff8a6a,1.3,800);
   k.light([0,250,100],0xbfd8ff,.6,320);k.light([560,280,200],0xffe2b0,1.0,520);k.light([-800,240,-1200],0xffc890,1.2,520);k.light([900,290,-900],0x9bb7ff,1.0,800);
+  // house lights, chandeliers and wall lamps
+  for(const [x,z] of [[-320,-380],[420,-380],[-320,-880],[420,-880]])k.light([x,378,z],0xffd2a0,1.0,820);
+  for(const x of [-210,210]){k.prop('chandelier',[x,148,300],{scale:1.5});k.light([x,112,300],0xffd9a8,.8,520,{fitting:false});}
+  k.prop('hanging_lamp',[480,300,210]);k.light([480,240,210],0xffe2b0,.8,480,{fitting:false});
+  k.prop('wall_lamp',[1099,150,-1100],{yaw:-Math.PI/2,scale:1.6});k.light([1070,140,-1100],0xffd9a0,.8,520,{fitting:false});
+  k.prop('wall_lamp',[850,150,-500],{yaw:Math.PI,scale:1.6});k.light([850,140,-530],0xffd9a0,.6,420,{fitting:false});
+  // furniture and clutter (drawn only)
+  k.prop('sofa',[0,0,580],{yaw:Math.PI,scale:1.28});
+  k.prop('armchair',[-210,0,572],{yaw:Math.PI-.3});k.prop('armchair',[-300,0,540],{yaw:Math.PI+.9});
+  k.prop('cash_register',[240,46,52]);k.prop('potted_plant',[310,46,58],{scale:2});
+  k.prop('grandfather_clock',[-390,0,70],{yaw:Math.PI/2});
+  k.prop('cardboard_box',[-150,0,110],{yaw:.4,scale:1.4});k.prop('cardboard_box',[-128,0,138],{yaw:-.3,scale:1.2});k.prop('cardboard_box',[-146,18,112],{yaw:1.1});
+  k.prop('barrel',[432,0,28]);k.prop('wooden_crate',[450,0,70],{yaw:.3,scale:1.3});k.prop('hand_truck',[690,0,372],{yaw:-2.4});
+  k.prop('film_projector',[-105,200,150],{yaw:Math.PI,scale:2.6});k.prop('film_projector',[105,200,150],{yaw:Math.PI,scale:2.6});
+  k.prop('military_crate',[0,160,150],{yaw:.1});k.prop('jerrycan',[120,160,90],{yaw:.7});
+  k.prop('barrel',[682,0,-240]);k.prop('barrel',[660,0,-262]);k.prop('cardboard_box',[-420,40,-1180],{yaw:.5,scale:1.5});k.prop('wooden_crate',[540,40,-1200],{yaw:-.2,scale:1.4});
+  k.prop('armchair',[-650,40,-1150],{yaw:-Math.PI/2});k.prop('cardboard_box',[-900,40,-1380],{yaw:.2,scale:1.5});k.prop('potted_plant',[-930,72,-1035],{scale:2});
+  k.prop('trashbag',[728,0,-518],{yaw:.3});k.prop('trashbag',[752,0,-530],{yaw:1.7,scale:1.15});k.prop('trashbag',[1080,0,-516],{yaw:2.6});
+  k.prop('tyre',[1068,3,-1284],{tilt:[Math.PI/2,0]});k.prop('tyre',[1064,9,-1280],{tilt:[Math.PI/2,0],yaw:.6});
+  k.prop('barrel',[722,0,-1288]);k.prop('barrel',[748,0,-1282]);k.prop('aircon_unit',[1094,180,-720],{yaw:-Math.PI/2});
+  k.prop('plastic_crate',[1040,0,-520],{yaw:.2});k.prop('plastic_crate',[1041,10,-521],{yaw:.5});k.prop('jerrycan',[1012,0,-524],{yaw:1.2});
+  k.prop('generator',[1060,0,-1050],{yaw:-Math.PI/2});k.prop('hand_truck',[716,0,-700],{yaw:Math.PI/2});
   k.entity({type:'screen',min:[-460,92,-1399],max:[560,328,-1398]});
   for(const [p,yaw,i] of [[[-394,75,220],Math.PI/2,0],[[394,75,480],-Math.PI/2,1],[[-60,75,594],Math.PI,2],[[60,75,594],Math.PI,3],[[-594,90,-950],Math.PI/2,4],[[-988,110,-1100],Math.PI/2,5]])k.entity({type:'poster',position:p,yaw,index:i});
   return {kit:k,links,start:['lobby'],outside:200};

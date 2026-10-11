@@ -51,7 +51,8 @@ export class MapKit {
   // opts: {yaw, scale, tilt:[x,z]}
   prop(model,position,opts={}){this.props.push({model,position,...opts});}
   entity(e){this.entities.push(e);return e;}
-  light(position,color,intensity,distance){this.lights.push({position,color,intensity,distance});}
+  // opts: {fitting:false} when a prop (lamp post, chandelier) already shows where the light comes from
+  light(position,color,intensity,distance,opts={}){this.lights.push({position,color,intensity,distance,...opts});}
 }
 
 const faceDefs=[
