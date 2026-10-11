@@ -336,7 +336,7 @@ function update(dt){
       fx.update(dt);
     }
   }
-  muzzle.intensity=Math.max(0,muzzle.intensity-dt*40000);flashlight.intensity=THREE.MathUtils.damp(flashlight.intensity,session.power?520:1500,4,dt);world.updateLights(dt,camera.position,session.power?1.8:.75);
+  muzzle.intensity=Math.max(0,muzzle.intensity-dt*40000);flashlight.intensity=THREE.MathUtils.damp(flashlight.intensity,session.power?320:1000,4,dt);world.updateLights(dt,camera.position,session.power?1.8:.75);
   camera.fov=THREE.MathUtils.damp(camera.fov,(ads&&!session.drinking&&!session.meleeLeft&&!session.reloadLeft?(session.def.adsFov||56)/78:player?.sliding?1.06:1)*settings.fov,12,dt);camera.updateProjectionMatrix();
   audio.listen(camera);
   hud();
