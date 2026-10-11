@@ -30,7 +30,7 @@ const profile=configureAssets();
 const renderer=createRenderer(profile,{exposure:1.25});
 let previous=performance.now(),lastRendered=0,renderedFrames=0,contextLost=false,resizeTimer;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07080b);scene.fog=new THREE.FogExp2(0x0b0c10,.00045);
-const ambient=new THREE.AmbientLight(0x8a90a0,.22);scene.add(ambient,new THREE.HemisphereLight(0x9aa6c0,0x33261e,.3));
+const ambient=new THREE.AmbientLight(0x8a90a0,.3);scene.add(ambient,new THREE.HemisphereLight(0x9aa6c0,0x33261e,.4));
 const camera=new THREE.PerspectiveCamera(settings.fov,innerWidth/innerHeight,1,8000);camera.rotation.order='YXZ';
 const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.01,20);
 viewScene.add(new THREE.AmbientLight(0xd8d0c0,1.6));const vl=new THREE.DirectionalLight(0xffefc8,2.2);vl.position.set(.5,2,1);viewScene.add(vl);
@@ -273,7 +273,7 @@ function interact(){
   }
   return false;
 }
-function powerOn(){if(session.power)return;session.power=true;session.flags.add('power_on');ambient.intensity=.34;announce('Power restored','THE SHOW GOES ON');audio.play('power');audio.voice('power_on');}
+function powerOn(){if(session.power)return;session.power=true;session.flags.add('power_on');ambient.intensity=.42;announce('Power restored','THE SHOW GOES ON');audio.play('power');audio.voice('power_on');}
 function respawnMe(){session.revive();player.setSpawn(vector(spawn.position));player.respawn();camera.rotation.set(0,spawn.yaw,0);announce('Back in the fight','NEW ROUND',3);}
 function stopDrink(){view.stopDrink();drinkUntil=0;}
 function repair(b){if(b.count>=b.boards.length||repairLeft>0)return false;repairLeft=.75;world.setBoards(b,b.count+1);coop?.board(b);if(b.rewardRound!==session.round){b.rewardRound=session.round;b.reward=0;}if(b.reward<50*session.round){session.addPoints(10);b.reward+=10;}audio.play('repair');return true;}
@@ -284,7 +284,7 @@ function reset(){
   session.reset();enemies.reset();world.reset(session);player.setSpawn(vector(spawn.position));player.respawn();camera.rotation.set(0,spawn.yaw,0);
   powerups.reset();crate.reset();view.stopDrink();
   for(const g of [grenades,projectiles,mines,decoys,gasClouds])clearGroup(g);fx.clear();arcs.clear();popups.clear();recoil.reset();feel.shownPoints=null;feel.kick=0;
-  renderer.domElement.style.filter='';started=false;repairLeft=0;burstLeft=0;lastPhase='';lastRound=0;ambient.intensity=.22;view.currentId=null;equipView();$('results').hidden=true;
+  renderer.domElement.style.filter='';started=false;repairLeft=0;burstLeft=0;lastPhase='';lastRound=0;ambient.intensity=.3;view.currentId=null;equipView();$('results').hidden=true;
   $('menu-status').textContent=touchControls.mode?'Tap to start':'Click to capture the mouse';
 }
 function update(dt){
@@ -336,7 +336,7 @@ function update(dt){
       fx.update(dt);
     }
   }
-  muzzle.intensity=Math.max(0,muzzle.intensity-dt*40000);flashlight.intensity=THREE.MathUtils.damp(flashlight.intensity,session.power?520:1500,4,dt);world.updateLights(dt,camera.position,session.power?1:.3);
+  muzzle.intensity=Math.max(0,muzzle.intensity-dt*40000);flashlight.intensity=THREE.MathUtils.damp(flashlight.intensity,session.power?520:1500,4,dt);world.updateLights(dt,camera.position,session.power?1:.5);
   camera.fov=THREE.MathUtils.damp(camera.fov,(ads&&!session.drinking&&!session.meleeLeft&&!session.reloadLeft?(session.def.adsFov||56)/78:player?.sliding?1.06:1)*settings.fov,12,dt);camera.updateProjectionMatrix();
   audio.listen(camera);
   hud();
@@ -384,7 +384,7 @@ const debug={getState,setActive,pause:()=>setActive(false),resume:()=>setActive(
   setBoards:(id,count)=>world.setBoards(world.barriers.find(b=>b.id===id),count),
   setRound:n=>{enemies.reset();while(session.round<n)session.nextRound();session.countdown=0;session.spawned=0;session.killed=0;},
   openAllDoors:()=>{for(const d of world.doors.values()){session.openDoors.add(d.name);session.flags.add(d.flag);}world.setDoors(session);},
-  setPower:on=>{session.power=!!on;if(on){session.flags.add('power_on');ambient.intensity=.34;}},
+  setPower:on=>{session.power=!!on;if(on){session.flags.add('power_on');ambient.intensity=.42;}},
   interactWith:(kind,key)=>{const e=world.interactions.find(i=>i.kind===kind&&(key==null||i.door===key||i.perk===key||i.weapon===key));if(!e)return false;camera.position.copy(e.position);return interact();},
   coopRevive:()=>{const m=coop?.reviveTarget(camera.position);if(m)coop.holdRevive(m,3.1);return !!m;},
   data:()=>data};

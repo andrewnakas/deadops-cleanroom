@@ -1,3 +1,4 @@
+import { TIERS, currentTier } from './gfx.js';
 import * as THREE from 'three';
 import { init, importNavMesh, NavMeshQuery } from '@recast-navigation/core';
 import { CollisionWorld } from './collision-world.js';
@@ -8,11 +9,27 @@ import { loadAsset, instance } from './models.js';
 export const vector=a=>new THREE.Vector3().fromArray(a);
 export const zoneNames={lobby:'Lobby',stairs:'Stair hall',balcony:'Balcony',booth:'Projection booth',auditorium:'Auditorium',dressing:'Dressing rooms',alley:'Back alley'};
 // Surface materials: ambientCG CC0 textures (assets/LICENSES.csv) with a tint per use.
-const SURFACES={tiles:{tint:0x9a9284,scale:48},plaster:{tint:0x9a948a,scale:120},wallpaper:{tint:0x8f6f5a,scale:90},paintedwood:{tint:0x7a5a3c,scale:80},
+const SURFACES={tiles:{tint:0x9a9284,scale:48,env:.35},plaster:{tint:0x9a948a,scale:120},wallpaper:{tint:0x8f6f5a,scale:90},paintedwood:{tint:0x7a5a3c,scale:80},
   metal:{tint:0x8a8f96,scale:80,metal:.6},velvet:{tint:0x9a1d22,scale:60},carpet:{tint:0x7a3430,scale:110},bricks:{tint:0x9a7a6a,scale:120},
   woodfloor:{tint:0xa08060,scale:110},concrete:{tint:0x8a8a86,scale:140},asphalt:{tint:0x6a6a6a,scale:160},planks:{tint:0xa88a62,scale:60},
   grass:{tint:0x7a9a5a,scale:120},hedge:{tint:0x3f6a34,scale:80},roof:{tint:0x7a4a3a,scale:90},siding:{tint:0xc8c0a8,scale:100},siding_b:{tex:'siding',tint:0x8aa0b8,scale:100},
-  glass:{plain:0x9fc8d8,opacity:.35},water:{plain:0x3a8ab8,opacity:.8},carpaint:{plain:0x8a2a24,metal:.5},carpaint_b:{plain:0x2a4a7a,metal:.5}};
+  glass:{plain:0x9fc8d8,opacity:.28,rough:.05,env:1.4},water:{plain:0x12303c,opacity:.86,rough:.04,env:1.6},carpaint:{plain:0x6a1c18,paint:true},carpaint_b:{plain:0x1c3458,paint:true}};
+// Large-scale variation so a tiled texture does not read as a grid: slow world-space noise shifts
+// brightness and roughness, and a finer layer adds blotches. One shader change shared by all surfaces.
+const WEATHER_GLSL=`
+float gsHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float gsNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gsHash(i),gsHash(i+vec2(1.,0.)),f.x),mix(gsHash(i+vec2(0.,1.)),gsHash(i+vec2(1.,1.)),f.x),f.y);}
+float gsFbm(vec2 p){return gsNoise(p)*.55+gsNoise(p*2.7+3.1)*.3+gsNoise(p*7.3+9.7)*.15;}`;
+function weathered(material,amount=1){
+  material.onBeforeCompile=shader=>{
+    shader.uniforms.gsWear={value:amount};
+    shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 gsPos;').replace('#include <begin_vertex>','#include <begin_vertex>\ngsPos=(modelMatrix*vec4(transformed,1.)).xyz;');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 gsPos;uniform float gsWear;float gsA;float gsB;'+WEATHER_GLSL)
+      .replace('#include <map_fragment>','#include <map_fragment>\nvec2 gsP=gsPos.xz+gsPos.y*vec2(.61,.37);gsA=gsFbm(gsP*.0043);gsB=gsFbm(gsP*.021+17.);diffuseColor.rgb*=mix(1.,(.74+gsA*.5)*(.86+gsB*.26),gsWear);')
+      .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor+(gsA-.5)*.3*gsWear-(gsB-.5)*.16*gsWear,.05,1.);');
+  };
+  material.customProgramCacheKey=()=>'weathered';return material;
+}
 function boxCollider(min,max){return new CollisionWorld(boxGeometry(min,max));}
 function yawToward(normal){return Math.atan2(normal[0],normal[2]);}
 
@@ -21,13 +38,17 @@ export class World {
   async load(progress,{mapName='cinema'}={}){
     const kit=this.map.kit;
     progress('Building the picture house',15);
-    const loader=new THREE.TextureLoader(),tex=(url,color=false)=>loader.loadAsync(url).then(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;if(color)t.colorSpace=THREE.SRGBColorSpace;return t;}).catch(()=>null);
+    const T=TIERS[currentTier.last],dir=T.tex<=512?'textures-mobile':'textures';
+    const loader=new THREE.TextureLoader(),tex=(url,color=false)=>loader.loadAsync(url).then(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=T.aniso;if(color)t.colorSpace=THREE.SRGBColorSpace;return t;}).catch(()=>null);
     this.materials={};
     const used=new Set(kit.solids.map(x=>x.mat));
     await Promise.all(Object.entries(SURFACES).filter(([name])=>used.has(name)).map(async([name,s])=>{
-      if(s.plain!==undefined){this.materials[name]=new THREE.MeshStandardMaterial({color:s.plain,roughness:.35,metalness:s.metal??0,transparent:!!s.opacity,opacity:s.opacity??1,depthWrite:!s.opacity});return;}
-      const t=s.tex??name,[map,normalMap,roughnessMap]=await Promise.all([tex(`textures/${t}_color.jpg`,true),tex(`textures/${t}_normal.jpg`),tex(`textures/${t}_rough.jpg`)]);
-      this.materials[name]=new THREE.MeshStandardMaterial({color:s.tint,map,normalMap,roughnessMap,roughness:1,metalness:s.metal??0,normalScale:new THREE.Vector2(.8,.8)});
+      if(s.plain!==undefined){
+        // glass and water mirror the sky; car paint is a clear-coated metallic
+        this.materials[name]=s.paint?new THREE.MeshPhysicalMaterial({color:s.plain,roughness:.5,metalness:.55,clearcoat:1,clearcoatRoughness:.12}):
+          new THREE.MeshStandardMaterial({color:s.plain,roughness:s.rough??.08,metalness:s.metal??0,transparent:!!s.opacity,opacity:s.opacity??1,depthWrite:!s.opacity,envMapIntensity:s.env??1});return;}
+      const t=s.tex??name,[map,normalMap,orm]=await Promise.all([tex(`${dir}/${t}_color.jpg`,true),tex(`${dir}/${t}_normal.jpg`),tex(`${dir}/${t}_orm.jpg`)]);
+      this.materials[name]=weathered(new THREE.MeshStandardMaterial({color:s.tint,map,normalMap,roughnessMap:orm,aoMap:orm,aoMapIntensity:1,metalnessMap:s.metal?orm:null,roughness:s.rough??1,metalness:s.metal?1:0,normalScale:new THREE.Vector2(s.bump??1,s.bump??1),envMapIntensity:s.env??1}),s.wear??1);
     }));
     const geos=buildGeometry(kit.solids,{scales:Object.fromEntries(Object.entries(SURFACES).map(([k,s])=>[k,s.scale]))});
     this.static=new THREE.Group();this.static.name='map';
